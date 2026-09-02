@@ -151,10 +151,26 @@ final class PwgCli {
       if ($verbose)
       {
         PwgCommand::error('"'.$blocking.'" is missing or not writable, this command needs to write in it');
-        PwgCommand::errln('give write access ("chmod -R 777 '.$conf['data_location'].'") or run as the web server user ("sudo -u www-data php cli/bin/pwg.php ...")');
+        PwgCommand::errln('give write access ("chmod -R 777 '.$conf['data_location'].'") or run as the web server user ("sudo -u www-data php '.CLI_ROOT_PATH.'bin/pwg.php ...")');
       }
       return PwgCommand::ERROR;
     }
+
+    return PwgCommand::SUCCESS;
+  }
+
+  public function prepare_cli_user()
+  {
+    include_once(PHPWG_ROOT_PATH.'include/functions_plugins.inc.php');
+    add_event_handler('user_init', 'cli_promote_user');
+    return PwgCommand::SUCCESS;
+  }
+
+  public function prepare_cli_logger()
+  {
+    include_once(PHPWG_ROOT_PATH.'include/functions_plugins.inc.php');
+    // "plugins_loaded" is the last event before the core writes its first log line
+    add_event_handler('plugins_loaded', 'cli_swap_logger');
 
     return PwgCommand::SUCCESS;
   }
@@ -206,6 +222,8 @@ final class PwgCli {
     $command_files = [
       'system',
       'user',
+      'maintenance',
+      'purge',
     ];
 
     // the test suite sets the env var, so fixtures stay invisible everywhere else
@@ -610,4 +628,26 @@ final class PwgCli {
   {
     return $this->commands;
   }
+}
+
+function cli_promote_user()
+{
+  global $user, $conf;
+  $user = build_user($conf['webmaster_id'] ?? 1, false);
+}
+
+// the web server owns its log file, the CLI writes its own
+function cli_swap_logger()
+{
+  global $logger, $conf;
+
+  $logger = new Logger(array(
+    'directory' => PHPWG_ROOT_PATH.$conf['data_location'].$conf['log_dir'],
+    'severity' => $conf['log_level'],
+    // same hashed scheme as the core, the file must stay unreachable over HTTP
+    'filename' => 'log_cli_'.date('Y-m-d').'_'.sha1(date('Y-m-d').$conf['db_password']).'.txt',
+    // our own pattern, purging must never touch the web server files
+    'globPattern' => 'log_cli_*.txt',
+    'archiveDays' => $conf['log_archive_days'],
+    ));
 }

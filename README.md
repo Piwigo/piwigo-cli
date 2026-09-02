@@ -30,6 +30,8 @@ pwg doctor
 
 The CLI can be disabled with `$conf['allow_cli'] = false` in `local/config/config.inc.php` (defaults live in `cli_default_config.php`).
 
+The CLI writes its own log file (`_data/logs/log_cli_*.txt`) so it never fights with the web server for the same one. This relies on `$conf['enable_plugins']` being true, which is the default. With plugins disabled the CLI shares the web server log file, and must then run as the web server user.
+
 ## Usage
 
 A command is declared as `namespace.command` and typed either way:

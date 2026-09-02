@@ -51,7 +51,11 @@ if ($init === PwgCommand::ERROR)
 {
   exit(PwgCommand::ERROR);
 }
+
+$cli->prepare_cli_user();
+$cli->prepare_cli_logger();
 include_once(PHPWG_ROOT_PATH.'include/common.inc.php');
 
-// build user: for now we assume the webmaster do theses cli commands
-$user = build_user($conf['webmaster_id'] ?? 1, false);
+// reload config default after full boot
+// because common.inc.php erase conf with $conf = array()
+include(CLI_ROOT_PATH.'cli_default_config.php');
