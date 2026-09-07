@@ -169,3 +169,109 @@ function cli_test_throw(array $args)
 {
   throw new Exception('boom from test.throw');
 }
+
+// exercises the progress bar, on a terminal and off (cron, redirect):
+//   pwg test progress            a 1000-step bar with a warning in the middle
+//   pwg test progress 2>&1 | cat the milestone lines a cron would get
+$cli->add_command('test.progress', 'cli_test_progress',
+  array(
+    'description' => 'Demo of the progress bar',
+    'hidden' => true,
+    'boot' => 'none',
+  )
+);
+function cli_test_progress()
+{
+  foreach (PwgCommand::iterate(range(1, 1000), 'progress') as $i)
+  {
+    if (500 === $i)
+    {
+      PwgCommand::warning('halfway');
+    }
+    if (600 === $i)
+    {
+      PwgCommand::progress_label('second half');
+    }
+    usleep(500);
+  }
+
+  // unknown total: a plain counter
+  PwgCommand::progress_start(null, 'counting');
+  for ($i = 0; $i < 2500; $i++)
+  {
+    PwgCommand::progress_advance();
+  }
+  PwgCommand::progress_finish();
+
+  PwgCommand::success('progress done');
+  return PwgCommand::SUCCESS;
+}
+
+// a second bar while one runs is a bug in the command, start() must refuse it
+$cli->add_command('test.progress_twice', 'cli_test_progress_twice',
+  array(
+    'description' => 'Starts two progress bars at once',
+    'hidden' => true,
+    'boot' => 'none',
+  )
+);
+function cli_test_progress_twice()
+{
+  PwgCommand::progress_start(10, 'first');
+  PwgCommand::progress_start(10, 'second');
+
+  return PwgCommand::SUCCESS;
+}
+
+
+// what the launcher guarantees before any command runs
+$cli->add_command('test.env', 'cli_test_env',
+  array(
+    'description' => 'Prints the process environment the CLI set up',
+    'hidden' => true,
+    'boot' => 'none',
+  )
+);
+function cli_test_env()
+{
+  PwgCommand::writeln([
+    getcwd() === realpath(PHPWG_ROOT_PATH) ? 'cwd is the piwigo root' : 'cwd is '.getcwd(),
+    sprintf('umask %04o', umask()),
+  ]);
+
+  return PwgCommand::SUCCESS;
+}
+
+// PHP errors raised inside a command: --level picks which one
+$cli->add_command('test.php_error', 'cli_test_php_error',
+  array(
+    'description' => 'Raises a PHP warning, a silenced one, or a deprecation',
+    'hidden' => true,
+    'boot' => 'none',
+    'args' => [
+      'level' => [
+        'info' => 'warning | silenced | deprecated',
+        'default' => 'warning',
+      ],
+    ],
+  )
+);
+function cli_test_php_error(array $args)
+{
+  $empty = [];
+
+  switch ($args['level'])
+  {
+    case 'silenced':
+      $value = @$empty['nope'];
+      break;
+    case 'deprecated':
+      trigger_error('old way', E_USER_DEPRECATED);
+      break;
+    default:
+      $value = $empty['nope'];
+  }
+
+  PwgCommand::success('survived');
+  return PwgCommand::SUCCESS;
+}

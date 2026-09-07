@@ -16,6 +16,18 @@ final class PwgCommand
   private static bool $verbose = false;
   private static bool $dry_run = false;
 
+  // progress bar state, one bar at a time
+  private const PROGRESS_BAR_WIDTH = 30;
+  private static bool $progress_active = false;
+  private static ?int $progress_total = null;
+  private static int $progress_current = 0;
+  private static string $progress_label = '';
+  private static float $progress_started = 0.0;
+  private static float $progress_drawn = 0.0;
+  private static int $progress_milestone = -1;
+  private static int $progress_width = 0;
+  private static ?bool $progress_tty = null;
+
   private function __construct() {}
 
   /**
@@ -143,7 +155,19 @@ final class PwgCommand
   */
   private static function output($stream, $message, string $line_start = PHP_EOL, string $line_end = PHP_EOL)
   {
+    // a message printed during a progress bar gets its own line, the bar is redrawn below
+    $bar_shown = self::$progress_active && self::progress_is_tty();
+    if ($bar_shown)
+    {
+      self::progress_clear();
+    }
+
     fwrite($stream, self::implode_recursive($line_start, (array) $message) . $line_end);
+
+    if ($bar_shown && PHP_EOL === $line_end)
+    {
+      self::progress_draw(true);
+    }
   }
 
   private static function implode_recursive(string $separator, array $array): string
@@ -309,5 +333,249 @@ final class PwgCommand
   public static function error(string $message)
   {
     self::errln(self::paint('[ERROR] ', self::RED). $message);
+  }
+
+  /**
+  * Start a progress bar on STDERR. Pass the total when you know it, null for
+  * a plain counter. On a terminal the bar redraws in place, elsewhere (cron,
+  * redirected output) it prints a line every 10%. Always close it with
+  * progress_finish(), or use iterate() which does everything for you. Only
+  * one bar at a time: starting a second one throws.
+  */
+  public static function progress_start(?int $total, string $label = '')
+  {
+    if (self::$progress_active)
+    {
+      // a bug in the command, not a runtime condition: be loud
+      throw new LogicException('a progress bar is already running ("'.self::$progress_label.'"), finish it before starting another one');
+    }
+
+    self::$progress_active = true;
+    self::$progress_total = $total;
+    self::$progress_current = 0;
+    self::$progress_label = $label;
+    self::$progress_started = microtime(true);
+    self::$progress_drawn = 0.0;
+    self::$progress_milestone = -1;
+    self::$progress_width = 0;
+
+    self::progress_draw(true);
+  }
+
+  /**
+  * Move the progress bar forward, by one step unless told otherwise. Cheap to
+  * call in a tight loop, it only redraws when the display would change.
+  */
+  public static function progress_advance(int $step = 1)
+  {
+    if (!self::$progress_active)
+    {
+      return;
+    }
+
+    self::$progress_current += $step;
+    self::progress_draw(false);
+  }
+
+  /**
+  * Close the progress bar: draws the final state and ends the line. Safe to
+  * call twice, a finished bar is simply ignored.
+  */
+  public static function progress_finish()
+  {
+    if (!self::$progress_active)
+    {
+      return;
+    }
+
+    if (self::progress_is_tty())
+    {
+      self::progress_draw(true);
+      fwrite(STDERR, PHP_EOL);
+    }
+    elseif (null === self::$progress_total)
+    {
+      fwrite(STDERR, trim(self::$progress_label.' done ('.self::$progress_current.')').PHP_EOL);
+    }
+    elseif (self::progress_percent() !== self::$progress_milestone)
+    {
+      // the real state, an interrupted bar must not claim 100%
+      fwrite(STDERR, self::progress_milestone_line(self::progress_percent()).PHP_EOL);
+    }
+
+    self::$progress_active = false;
+  }
+
+  /**
+  * Change the text shown next to the bar while it runs, to tell where the
+  * work is ("Vacances/2024", "step 2/3"...). Does nothing without an active
+  * bar.
+  */
+  public static function progress_label(string $label)
+  {
+    if (!self::$progress_active)
+    {
+      return;
+    }
+
+    self::$progress_label = $label;
+
+    if (self::progress_is_tty())
+    {
+      self::progress_draw(true);
+    }
+  }
+
+  /**
+  * Loop over anything with a progress bar, nothing else to call:
+  *   foreach (PwgCommand::iterate($files, 'importing') as $file) { ... }
+  * The total is taken from count() when it exists. A break or an exception
+  * inside the loop still closes the bar properly.
+  */
+  public static function iterate(iterable $items, string $label = ''): Generator
+  {
+    self::progress_start(is_countable($items) ? count($items) : null, $label);
+
+    try
+    {
+      foreach ($items as $key => $item)
+      {
+        yield $key => $item;
+        self::progress_advance();
+      }
+    }
+    finally
+    {
+      self::progress_finish();
+    }
+  }
+
+  private static function progress_is_tty(): bool
+  {
+    if (null === self::$progress_tty)
+    {
+      self::$progress_tty = stream_isatty(STDERR);
+    }
+
+    return self::$progress_tty;
+  }
+
+  private static function progress_percent(): int
+  {
+    if (null === self::$progress_total || self::$progress_total <= 0)
+    {
+      return 0;
+    }
+
+    return (int) min(100, floor(self::$progress_current * 100 / self::$progress_total));
+  }
+
+  // one redraw per percent or per 100ms on a terminal, one line per 10% elsewhere
+  private static function progress_draw(bool $force)
+  {
+    $now = microtime(true);
+    $percent = self::progress_percent();
+
+    if (!self::progress_is_tty())
+    {
+      $milestone = null === self::$progress_total
+        ? (int) (floor(self::$progress_current / 1000) * 1000)
+        : $percent - $percent % 10;
+
+      if ($milestone > self::$progress_milestone && ($force || $milestone > 0))
+      {
+        self::$progress_milestone = $milestone;
+        fwrite(STDERR, self::progress_milestone_line($milestone).PHP_EOL);
+      }
+      return;
+    }
+
+    if (!$force && $percent === self::$progress_milestone && $now - self::$progress_drawn < 0.1)
+    {
+      return;
+    }
+
+    self::$progress_milestone = $percent;
+    self::$progress_drawn = $now;
+
+    $line = self::progress_line($now);
+    // pad with spaces so a shorter line erases the previous one
+    fwrite(STDERR, "\r".str_pad($line, self::$progress_width));
+    self::$progress_width = strlen($line);
+  }
+
+  private static function progress_clear()
+  {
+    fwrite(STDERR, "\r".str_repeat(' ', self::$progress_width)."\r");
+    self::$progress_width = 0;
+  }
+
+  // the milestone line printed off a terminal, e.g. "importing  50% (500/1000)"
+  private static function progress_milestone_line(int $milestone): string
+  {
+    if (null === self::$progress_total)
+    {
+      return trim(self::$progress_label.'... '.$milestone);
+    }
+
+    return trim(self::$progress_label.sprintf(' %3d%% (%d/%d)', $milestone, min(self::$progress_current, self::$progress_total), self::$progress_total));
+  }
+
+  // the terminal line, e.g. "[=====>     ]  47%  470/1000  12s  eta 14s  importing"
+  private static function progress_line(float $now): string
+  {
+    $elapsed = $now - self::$progress_started;
+    $parts = [];
+
+    if (null === self::$progress_total)
+    {
+      $spinner = ['-', '\\', '|', '/'];
+      $parts[] = '['.$spinner[(int) ($elapsed * 4) % 4].'] '.self::$progress_current;
+    }
+    else
+    {
+      $percent = self::progress_percent();
+      $filled = (int) floor($percent / 100 * self::PROGRESS_BAR_WIDTH);
+      $bar = str_repeat('=', $filled);
+      if ($filled < self::PROGRESS_BAR_WIDTH)
+      {
+        $bar .= '>';
+      }
+      $parts[] = '['.str_pad($bar, self::PROGRESS_BAR_WIDTH).']';
+      $parts[] = sprintf('%3d%%', $percent);
+      $parts[] = self::$progress_current.'/'.self::$progress_total;
+    }
+
+    $parts[] = self::progress_duration($elapsed);
+
+    // an eta computed on the first instants is noise, wait two seconds
+    if (null !== self::$progress_total && self::$progress_current > 0 && $elapsed >= 2 && self::$progress_current < self::$progress_total)
+    {
+      $remaining = $elapsed / self::$progress_current * (self::$progress_total - self::$progress_current);
+      $parts[] = 'eta '.self::progress_duration($remaining);
+    }
+
+    if ('' !== self::$progress_label)
+    {
+      $parts[] = self::$progress_label;
+    }
+
+    return implode('  ', $parts);
+  }
+
+  private static function progress_duration(float $seconds): string
+  {
+    $seconds = (int) round($seconds);
+
+    if ($seconds < 60)
+    {
+      return $seconds.'s';
+    }
+    if ($seconds < 3600)
+    {
+      return sprintf('%dm%02ds', intdiv($seconds, 60), $seconds % 60);
+    }
+
+    return sprintf('%dh%02dm', intdiv($seconds, 3600), intdiv($seconds % 3600, 60));
   }
 }

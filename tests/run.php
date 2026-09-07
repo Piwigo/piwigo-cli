@@ -156,6 +156,17 @@ pwg_case('no stack trace without --verbose', ['test.throw'], 1, null, '#0 ');
 pwg_case('--verbose adds file, line and trace', ['test.throw', '--verbose'], 1, 'cli.test.php');
 pwg_case('-v inside a command is not verbose anymore', ['test.throw', '-v'], 2, 'Unknown option');
 
+echo "launcher\n";
+pwg_case('the cwd is the piwigo root whatever the shell cwd', ['test.env'], 0, 'cwd is the piwigo root');
+pwg_case('umask is 0, files stay writable by the web server', ['test.env'], 0, 'umask 0000');
+
+echo "php errors\n";
+pwg_case('a warning fails the command instead of hiding under [OK]', ['test.php_error'], 1, 'Undefined array key', '[OK]');
+pwg_case('--verbose locates the warning', ['test.php_error', '--verbose'], 1, 'cli.test.php:');
+pwg_case('the @ operator is honored, the command goes on', ['test.php_error', '--level', 'silenced'], 0, 'survived');
+pwg_case('a deprecation is silent by default', ['test.php_error', '--level', 'deprecated'], 0, 'survived', 'old way');
+pwg_case('a deprecation shows with --verbose', ['test.php_error', '--level', 'deprecated', '--verbose'], 0, '[NOTICE] old way');
+
 echo "registration guards\n";
 reg_case('duplicate name is rejected',
   '$cli->add_command("x.a", "cb"); $cli->add_command("x.a", "cb");',
@@ -200,6 +211,16 @@ else
   pwg_case('full boot acts as the webmaster, not guest', ['test.full'], 0, 'user status: webmaster', 'guest');
   pwg_case('status shows the gallery numbers on boot minimal', ['status'], 0, 'Piwigo ');
 }
+
+echo "progress\n";
+pwg_case('off a terminal, progress prints a line every 10%', ['test.progress'], 0, 'progress  50% (500/1000)');
+pwg_case('progress closes on a 100% line, with the current label', ['test.progress'], 0, 'second half 100% (1000/1000)');
+pwg_case('progress never emits carriage returns off a terminal', ['test.progress'], 0, null, "\r");
+pwg_case('a warning during progress keeps its own line', ['test.progress'], 0, '[WARNING] halfway');
+pwg_case('unknown total counts by thousands', ['test.progress'], 0, 'counting... 2000');
+pwg_case('unknown total closes with the final count', ['test.progress'], 0, 'counting done (2500)');
+pwg_case('the label can change while the bar runs', ['test.progress'], 0, 'second half  60% (600/1000)');
+pwg_case('starting a second bar is refused loudly', ['test.progress_twice'], 1, 'already running ("first")');
 
 echo "system commands\n";
 pwg_case('list hides hidden commands', ['list'], 0, 'install', 'test ok');
