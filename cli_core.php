@@ -196,6 +196,9 @@ final class PwgCli {
       return PwgCommand::ERROR;
     }
 
+    // a PHP warning during the command must fail it, never hide under an [OK]
+    set_error_handler([$this, 'handle_php_error']);
+
     try
     {
       $exit = call_user_func($command['callback'], $this->current_command['args']);
@@ -211,8 +214,50 @@ final class PwgCli {
       }
       return PwgCommand::ERROR;
     }
+    finally
+    {
+      restore_error_handler();
+    }
 
     return is_int($exit) ? $exit : PwgCommand::SUCCESS;
+  }
+
+  // warnings become exceptions, notices and deprecations only show with --verbose
+  public function handle_php_error(int $errno, string $errstr, string $errfile, int $errline): bool
+  {
+    // the @ operator lowers error_reporting for that call, honor it like PHP does
+    if (!(error_reporting() & $errno))
+    {
+      return false;
+    }
+
+    if ($errno & (E_WARNING | E_USER_WARNING | E_USER_ERROR | E_RECOVERABLE_ERROR))
+    {
+      throw new ErrorException($errstr, 0, $errno, $errfile, $errline);
+    }
+
+    if (PwgCommand::is_verbose())
+    {
+      PwgCommand::errln('[NOTICE] '.$errstr.' ('.$errfile.':'.$errline.')');
+    }
+
+    return true;
+  }
+
+  // Ctrl+C: close an open progress bar, say so, leave with the Unix convention
+  public function trap_interrupt()
+  {
+    if (!function_exists('pcntl_async_signals'))
+    {
+      return;
+    }
+
+    pcntl_async_signals(true);
+    pcntl_signal(SIGINT, function () {
+      PwgCommand::progress_finish();
+      PwgCommand::errln('aborted');
+      exit(130);
+    });
   }
 
   private function load_commands()

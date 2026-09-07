@@ -15,6 +15,7 @@ if (!$conf['allow_cli'])
 }
 
 $cli = new PwgCli();
+$cli->trap_interrupt();
 $cli->boot();
 
 // Everything below runs at file scope on purpose: common.inc.php and its friends
