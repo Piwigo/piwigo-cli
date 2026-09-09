@@ -178,6 +178,11 @@ pwg_case('a page beyond the end says so', ['test.pages', '--page', '3'], 0, 'the
 pwg_case('it says so even when everything fits on one page', ['test.pages', '-l', '50', '--page', '2'], 0, 'there is no page 2, 25 rows fit in 1 page');
 pwg_case('a single page prints no footer', ['test.pages', '-l', '50'], 0, 'row 25', 'page 1/1');
 
+echo "long help\n";
+pwg_case('details paragraphs only show in the help', ['test.pages', '--help'], 0, 'only show in the help');
+pwg_case('examples are listed at the end', ['test.pages', '--help'], 0, "Examples:\n  pwg test pages --page 2");
+pwg_case('the list keeps the one-line description', ['list', '-a'], 0, 'Demo of the shared pagination', 'only show in the help');
+
 echo "registration guards\n";
 reg_case('duplicate name is rejected',
   '$cli->add_command("x.a", "cb"); $cli->add_command("x.a", "cb");',

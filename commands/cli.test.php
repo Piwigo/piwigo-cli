@@ -280,6 +280,12 @@ function cli_test_php_error(array $args)
 $cli->add_command('test.pages', 'cli_test_pages',
   array(
     'description' => 'Demo of the shared pagination',
+    'details' => [
+      'The "details" paragraphs and the "examples" of a spec only show in the help, so the description can stay the single line that "pwg list" prints.',
+    ],
+    'examples' => [
+      'pwg test pages --page 2',
+    ],
     'hidden' => true,
     'boot' => 'none',
     'pagination' => true,

@@ -545,7 +545,16 @@ final class PwgCli {
 
     if (!empty($spec['description']))
     {
-      $lines = ['Description:', '  '.$spec['description'], ''];
+      $lines = ['Description:', '  '.$spec['description']];
+
+      // "details" is only for the help: "description" must stay one line, pwg list shows it
+      foreach ((array) ($spec['details'] ?? []) as $paragraph)
+      {
+        $lines[] = '';
+        $lines = array_merge($lines, self::wrap($paragraph));
+      }
+
+      $lines[] = '';
     }
 
     $usage = '  pwg '.str_replace('.', ' ', $command['name']).' [options]';
@@ -576,7 +585,23 @@ final class PwgCli {
     $lines[] = 'Options:';
     $lines = array_merge($lines, $this->options_lines(($spec['args'] ?? []) + self::GLOBAL_ARGS));
 
+    if (!empty($spec['examples']))
+    {
+      $lines[] = '';
+      $lines[] = 'Examples:';
+      foreach ((array) $spec['examples'] as $example)
+      {
+        $lines[] = '  '.$example;
+      }
+    }
+
     PwgCommand::writeln($lines);
+  }
+
+  // help paragraphs are written as one long string, cut them to a readable width
+  private static function wrap(string $text, int $width = 76): array
+  {
+    return array_map(function ($line) { return '  '.$line; }, explode("\n", wordwrap(trim($text), $width)));
   }
 
   // "  -d, --dry-run   Simulate only" for each option, aligned

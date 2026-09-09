@@ -9,6 +9,15 @@ global $cli;
 $cli->add_command('sync', 'cli_sync',
   array(
     'description' => 'Import a directory: its folders become albums, its photos are uploaded',
+    'details' => [
+      'Photos go through the same path as a web upload: they are moved into upload/, their metadata is read and the plugins hooked on uploads run. The directory itself becomes an album named after it, its sub-folders become sub-albums, and every photo lands in the album of its folder (underscores become spaces).',
+      'A photo the gallery already stores is recognized by its md5: it is linked to the album instead of being stored twice. Albums are found by name before being created, so running the same import again is safe.',
+      'Symbolic links are skipped, and so is anything the gallery already references. The account running it must be able to write into upload/ and to read the directory. Start with --dry-run.',
+    ],
+    'examples' => [
+      'pwg sync ~/Vacances_2024 --dry-run',
+      'pwg sync /srv/dropbox --unwrap -p 12 --keep',
+    ],
     'boot' => 'full',
     'operands' => [
       'directory' => [
