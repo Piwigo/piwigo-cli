@@ -254,6 +254,12 @@ php plugins/piwigo-cli/tests/run.php
 
 Each case runs `bin/pwg.php` as a subprocess and checks exit code and output. The `test.*` commands are the fixtures: hidden, `boot none`, no database needed. Any change to the engine or a command ships with its cases.
 
+The suite has three layers, and running it once plays them all:
+
+- the engine, always: parsing, exit codes, help, registration guards, progress, pagination;
+- the gallery, when `local/config/database.inc.php` is there: listings and `--dry-run` only, so it never writes a row;
+- the benches (`tests/bench/`), which load one command file with a fake core and call its callbacks directly, to cover the decisions a write makes without a database.
+
 ## Support
 
 * Forums: https://piwigo.org/forum/

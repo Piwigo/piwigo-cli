@@ -16,12 +16,18 @@ $failed = 0;
 * @param string|null $expected_in_output Substring that must appear (stdout+stderr)
 * @param string|null $forbidden_in_output Substring that must NOT appear
 * @param string|null $stdin What the command reads on STDIN, closed when null
+* @param string|null $command Prepended to $args, to keep a long argument list readable
 */
-function pwg_case(string $label, array $args, int $expected_exit, ?string $expected_in_output = null, ?string $forbidden_in_output = null, ?string $stdin = null)
+function pwg_case(string $label, array $args, int $expected_exit, ?string $expected_in_output = null, ?string $forbidden_in_output = null, ?string $stdin = null, ?string $command = null)
 {
   global $passed, $failed;
 
   $bin = dirname(__DIR__).'/bin/pwg.php';
+
+  if (null !== $command)
+  {
+    array_unshift($args, $command);
+  }
 
   $parts = array_map('escapeshellarg', array_merge([PHP_BINARY, $bin], $args));
   $command = 'PWG_CLI_TESTS=1 '.implode(' ', $parts).' 2>&1'; // the fixtures are gated off outside the suite
@@ -234,7 +240,7 @@ else
   echo "  skip installed here, not-installed path not testable\n";
   pwg_case('full boot crosses the _data gate', ['test.full'], 0, 'full boot reached');
   pwg_case('full boot acts as the webmaster, not guest', ['test.full'], 0, 'user status: webmaster', 'guest');
-  pwg_case('status shows the gallery numbers on boot minimal', ['status'], 0, 'Piwigo ');
+  pwg_case('status shows the gallery numbers on boot minimal', ['status'], 0, 'photos');
 }
 
 echo "progress\n";
@@ -274,5 +280,65 @@ else
   pwg_case('doctor checks code vs database versions', ['doctor'], 0, 'version - code');
 }
 
+// Everything below needs a gallery. Nothing here writes: only --dry-run and listings,
+// so the suite can run against a real Piwigo without leaving a single row behind.
+if (is_file(dirname(__DIR__, 3).'/local/config/database.inc.php'))
+{
+  echo "listings (installed)\n";
+  pwg_case('user list prints a table', ['user', 'list'], 0, '| user_id |');
+  pwg_case('user list paginates', ['user', 'list', '-l', '1'], 0, '--page 2 for the next');
+  pwg_case('an unknown user is rejected before anything', ['user', 'info', 'no_such_user_'.getmypid()], 2, 'not found');
+  pwg_case('plugin list prints a table', ['plugin', 'list'], 0, '| state');
+  pwg_case('plugin list filters on the name', ['plugin', 'list', '-s', 'piwigo-cli'], 0, 'piwigo-cli');
+  pwg_case('a filter matching nothing says so', ['plugin', 'list', '-s', 'zzz_no_plugin'], 0, 'no plugin matching');
+  pwg_case('theme list hides the core folders', ['theme', 'list'], 0, null, 'standard_pages');
+  pwg_case('theme standard_pages reports its state', ['theme', 'standard_pages'], 0, 'standard pages are');
+  pwg_case('status counts the gallery', ['status'], 0, 'photos');
+
+  echo "dry runs (installed)\n";
+  pwg_case('purge orphan tags counts without deleting', ['purge', 'orphan_tags', '--dry-run'], 0, null, 'deleted');
+  pwg_case('purge sessions counts without deleting', ['purge', 'sessions', '--dry-run'], 0, null, 'purged');
+  pwg_case('purge derivatives reports the directory', ['purge', 'derivatives', '--dry-run'], 0, 'would delete every generated size');
+  pwg_case('maintenance repair_db counts the tables', ['maintenance', 'repair_db', '--dry-run'], 0, 'would repair, reorder and optimize');
+  pwg_case('user edit shows the fields it would change', ['user', 'edit', '1', '--level', '4', '--dry-run'], 0, 'would become');
+  pwg_case('user edit refuses an empty change', ['user', 'edit', '1', '--dry-run'], 2, 'Nothing to change');
+  pwg_case('user delete protects the webmaster', ['user', 'delete', '1', '--dry-run'], 0, 'protected account');
+  pwg_case('plugin deactivate refuses an unknown plugin', ['plugin', 'deactivate', 'zzz_nope', '--dry-run'], 2, 'not found in plugins/');
+  pwg_case('theme delete refuses a core folder', ['theme', 'delete', 'default', '--dry-run'], 0, 'belongs to the core');
+
+  echo "import dry runs (installed)\n";
+  // a throwaway tree, two real jpeg files made here so nothing binary lives in the repo
+  $tree = sys_get_temp_dir().'/pwg_cli_import_'.getmypid();
+  @mkdir($tree.'/plage/soir_2', 0777, true);
+  @mkdir($tree.'/vide', 0777, true);
+  foreach (['a', 'b'] as $i => $name)
+  {
+    $image = imagecreatetruecolor(60, 40);
+    imagefilledrectangle($image, 0, 0, 60, 40, imagecolorallocate($image, $i * 120, 90, 30));
+    imagejpeg($image, $tree.($i ? '/plage/' : '/').$name.'.jpg');
+  }
+
+  pwg_case('import plans the albums and the photos', [$tree, '--dry-run'], 0, '+ pwg cli import '.getmypid(), null, null, 'import');
+  pwg_case('import counts what it would do', [$tree, '--dry-run'], 0, 'photos: 2 to import', null, null, 'import');
+  pwg_case('import goes down into the sub-folders', [$tree, '--dry-run'], 0, 'plage', null, null, 'import');
+  pwg_case('--flat keeps everything in one album', [$tree, '--dry-run', '--flat'], 0, '2 photos', null, null, 'import');
+  pwg_case('--dirs-only imports no photo', [$tree, '--dry-run', '-d'], 0, 'photos: 0 to import', null, null, 'import');
+  pwg_case('--unwrap needs an album for the loose photos', [$tree, '--dry-run', '--unwrap'], 1, 'need an album', null, null, 'import');
+  pwg_case('a directory that does not exist is refused', [$tree.'/nope', '--dry-run'], 1, 'is not a directory', null, null, 'import');
+  pwg_case('the upload directory itself is refused', [dirname(__DIR__, 3).'/upload', '--dry-run'], 1, 'upload directory', null, null, 'import');
+
+  // leave nothing behind, the tree was ours
+  array_map('unlink', glob($tree.'/{,*/,*/*/}*.jpg', GLOB_BRACE));
+  foreach ([$tree.'/plage/soir_2', $tree.'/plage', $tree.'/vide', $tree] as $dir)
+  {
+    @rmdir($dir);
+  }
+}
+
 echo "\n".$passed.' passed, '.$failed.' failed'."\n";
-exit($failed > 0 ? 1 : 0);
+
+// the benches cover what needs a gallery, with a fake core instead of one
+echo "\nbenches\n";
+passthru(escapeshellarg(PHP_BINARY).' '.escapeshellarg(__DIR__.'/bench/run_bench.php'), $bench_failed);
+
+exit($failed > 0 || 0 !== $bench_failed ? 1 : 0);
