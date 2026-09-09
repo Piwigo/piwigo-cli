@@ -303,6 +303,9 @@ if (is_file(dirname(__DIR__, 3).'/local/config/database.inc.php'))
   pwg_case('theme list hides the core folders', ['theme', 'list'], 0, null, 'standard_pages');
   pwg_case('theme standard_pages reports its state', ['theme', 'standard_pages'], 0, 'standard pages are');
   pwg_case('status counts the gallery', ['status'], 0, 'photos');
+  pwg_case('album list prints a table', ['album', 'list'], 0, '| photos |');
+  pwg_case('album list can stay at the top level', ['album', 'list', '-p', 'root'], 0, '| id |');
+  pwg_case('an unknown album is rejected', ['album', 'list', '-p', '999999'], 2, 'does not exist');
 
   echo "dry runs (installed)\n";
   pwg_case('purge orphan tags counts without deleting', ['purge', 'orphan_tags', '--dry-run'], 0, null, 'deleted');
@@ -314,6 +317,9 @@ if (is_file(dirname(__DIR__, 3).'/local/config/database.inc.php'))
   pwg_case('user delete protects the webmaster', ['user', 'delete', '1', '--dry-run'], 0, 'protected account');
   pwg_case('plugin deactivate refuses an unknown plugin', ['plugin', 'deactivate', 'zzz_nope', '--dry-run'], 2, 'not found in plugins/');
   pwg_case('theme delete refuses a core folder', ['theme', 'delete', 'default', '--dry-run'], 0, 'belongs to the core');
+  pwg_case('album add reports what it would create', ['album', 'add', 'pwg cli test album', '--dry-run'], 0, 'would create a public album');
+  pwg_case('album delete counts the photos and every outcome', ['album', 'delete', '1', '--dry-run'], 0, 'would delete', 'What should happen');
+  pwg_case('album edit refuses an unknown status', ['album', 'edit', '1', '-s', 'secret', '--dry-run'], 2, '--status takes');
 
   echo "import dry runs (installed)\n";
   // a throwaway tree, two real jpeg files made here so nothing binary lives in the repo

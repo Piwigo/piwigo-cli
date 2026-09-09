@@ -167,5 +167,34 @@ bench_case('theme', 'install-version-two', 2, ['--version applies to a single th
 bench_case('theme', 'update-list', 0, ['| elegant | 2.1     | 2.5', '1 theme can be updated'], ['extract_theme_files']);
 bench_case('theme', 'update-all', 0, ["extract_theme_files('upgrade', rev=7001, dest=elegant)", 'updated to 2.5']);
 
+echo "album\n";
+bench_case('album', 'list', 0, ['| Vacances |', '| 45 | 2024', '| photos']);
+bench_case('album', 'add', 0, ["create_virtual_category('Noel', NULL, [])", 'created (#101) at the top level']);
+bench_case('album', 'add-under', 0, ['{"status":"private","comment":"la mer"}', 'under "Vacances" (#12)']);
+bench_case('album', 'add-dry', 0, ['would create a private album "Noel" under "Vacances" (#12)'], ['create_virtual_category']);
+bench_case('album', 'add-unknown-parent', 2, ['album #999 does not exist'], ['create_virtual_category']);
+bench_case('album', 'edit', 0, ["set_cat_status(12, 'private')", 'single_update({"name":"Vacances 2024"})', 'updated: name, status']);
+bench_case('album', 'edit-dry', 0, ['would become', 'Vacances 2024'], ['single_update']);
+bench_case('album', 'edit-nothing', 0, ['nothing to change on "Vacances" (#12)'], ['single_update']);
+bench_case('album', 'edit-bad-status', 2, ['--status takes "public" or "private"']);
+bench_case('album', 'edit-bad-visible', 2, ['--visible takes "true" or "false"']);
+bench_case('album', 'edit-unknown', 2, ['album #999 does not exist']);
+bench_case('album', 'move', 0, ['move_categories(45, 7)', 'moved under "Divers" (#7)']);
+bench_case('album', 'move-root', 0, ['move_categories(45, 0)', 'moved to the top level']);
+bench_case('album', 'move-dry', 0, ['would move 2024 (#45) under "Divers" (#7)'], ['move_categories']);
+bench_case('album', 'move-into-itself', 1, ['You cannot move an album in its own sub album']);
+bench_case('album', 'move-nothing', 2, ['Which album?']);
+bench_case('album', 'delete-dry', 0,
+  ['and 1 sub-album', '2 photos inside, 1 of them also in another album, 1 only here',
+   'keep 0, orphans 1, all 2'],
+  ['delete_categories', 'What should happen']);
+bench_case('album', 'delete-keep', 0, ["delete_categories(12, 'no_delete')", '2 albums deleted, 0 photos deleted']);
+bench_case('album', 'delete-orphans', 0, ["delete_categories(12, 'delete_orphans')", '1 photo deleted']);
+bench_case('album', 'delete-all', 0, ["delete_categories(12, 'force_delete')", '2 photos deleted']);
+bench_case('album', 'delete-asks', 1, ['What should happen to the photos?', 'delete the 1 photo that would be left in no album', 'aborted'], ['delete_categories']);
+bench_case('album', 'delete-bad-mode', 2, ['--photos takes keep, orphans, all']);
+bench_case('album', 'delete-empty-album', 0, ['no photo inside', "delete_categories(45, 'no_delete')"], ['What should happen']);
+bench_case('album', 'delete-nothing', 2, ['Which album?']);
+
 echo "\n".$passed.' passed, '.$failed.' failed'."\n";
 exit($failed > 0 ? 1 : 0);

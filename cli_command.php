@@ -369,6 +369,39 @@ final class PwgCommand
   }
 
   /**
+  * Ask the user to pick one of several answers. $options maps an answer to what it means,
+  * the first line being the safest choice. Pressing enter, a closed STDIN (cron, CI) or
+  * --yes all take $default, so a script never blocks and never picks the risky branch.
+  */
+  public static function choose(string $question, array $options, string $default): string
+  {
+    if (self::$assume_yes)
+    {
+      return $default;
+    }
+
+    self::writeln($question);
+    foreach ($options as $answer => $meaning)
+    {
+      self::writeln('  '.self::green(str_pad($answer, 10)).$meaning.($answer === $default ? ' (default)' : ''));
+    }
+
+    $answer = strtolower(self::prompt('['.implode('/', array_keys($options)).']'));
+
+    if (isset($options[$answer]))
+    {
+      return $answer;
+    }
+
+    if ('' !== $answer)
+    {
+      self::warning('"'.$answer.'" is not one of them, taking "'.$default.'"');
+    }
+
+    return $default;
+  }
+
+  /**
   * Print a green "[OK]" message on STDOUT, for the final good news of a
   * command.
   */
