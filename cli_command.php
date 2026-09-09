@@ -15,6 +15,7 @@ final class PwgCommand
   private static bool $assume_yes = false;
   private static bool $verbose = false;
   private static bool $dry_run = false;
+  private static string $format = 'table';
 
   // progress bar state, one bar at a time
   private const PROGRESS_BAR_WIDTH = 30;
@@ -49,6 +50,31 @@ final class PwgCommand
   public static function set_dry_run()
   {
     self::$dry_run = true;
+  }
+
+  /**
+  * Choose how table() and record() print. Called by the engine when --format is passed,
+  * a command never needs it. Returns false when the name is not one we know.
+  */
+  public static function set_format(string $format): bool
+  {
+    if (!in_array($format, ['table', 'json']))
+    {
+      return false;
+    }
+
+    self::$format = $format;
+
+    return true;
+  }
+
+  /**
+  * The output format asked for: "table" by default, "json" with --format=json. Read it
+  * when a command prints something table() and record() cannot express.
+  */
+  public static function format(): string
+  {
+    return self::$format;
   }
 
   /**
@@ -207,6 +233,30 @@ final class PwgCommand
   }
 
   /**
+  * Print one record: a two-column field/value table, or the object itself with
+  * --format=json. Use it for "show me this one thing", table() for a list of things.
+  */
+  public static function record(array $data)
+  {
+    if ('json' === self::$format)
+    {
+      self::writeJson($data);
+      return;
+    }
+
+    $rows = [];
+    foreach ($data as $field => $value)
+    {
+      $rows[] = [
+        'field' => $field,
+        'value' => is_scalar($value) || null === $value ? (string) $value : json_encode($value, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+      ];
+    }
+
+    self::table($rows);
+  }
+
+  /**
   * Print anything as pretty JSON on STDOUT. Prefer it when you want to print
   * readable data (like 1 user): writeln() flattens arrays into lines and
   * loses the keys, writeJson() keeps the structure and stays parseable.
@@ -238,6 +288,13 @@ final class PwgCommand
   */
   public static function table(array $rows, ?array $headers = null)
   {
+    // --format=json: the rows as they are, for a script to read
+    if ('json' === self::$format)
+    {
+      self::writeJson(array_values(array_map(function ($row) { return (array) $row; }, $rows)));
+      return;
+    }
+
     $columns = empty($rows) ? [] : array_keys((array) reset($rows));
 
     if (null === $headers)

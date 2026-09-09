@@ -34,6 +34,10 @@ final class PwgCli {
       'info' => 'Show debug details (stack traces, full errors)',
       'flag' => true,
     ],
+    'format' => [
+      'info' => 'How to print a table or a record: table or json',
+      'default' => 'table',
+    ],
   ];
 
   private array $commands = [];
@@ -78,6 +82,11 @@ final class PwgCli {
     if (!empty($this->current_command['args']['dry-run']))
     {
       PwgCommand::set_dry_run();
+    }
+    if (!PwgCommand::set_format($this->current_command['args']['format'] ?? 'table'))
+    {
+      PwgCommand::error('--format takes "table" or "json", not "'.$this->current_command['args']['format'].'"');
+      exit(PwgCommand::INVALID);
     }
     foreach (array_keys(self::GLOBAL_ARGS) as $global_arg)
     {

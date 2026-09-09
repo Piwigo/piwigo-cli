@@ -189,6 +189,15 @@ pwg_case('details paragraphs only show in the help', ['test.pages', '--help'], 0
 pwg_case('examples are listed at the end', ['test.pages', '--help'], 0, "Examples:\n  pwg test pages --page 2");
 pwg_case('the list keeps the one-line description', ['list', '-a'], 0, 'Demo of the shared pagination', 'only show in the help');
 
+echo "output format\n";
+pwg_case('a table is a grid by default', ['test.format'], 0, '| id | name');
+pwg_case('a record is a field/value grid by default', ['test.format'], 0, "| field   | value");
+pwg_case('--format=json turns the table into rows', ['test.format', '--format=json'], 0, '"name": "Vacances"', '+----');
+pwg_case('--format=json keeps a record an object', ['test.format', '--format=json'], 0, '"private": false');
+pwg_case('a record flattens what json would nest', ['test.format'], 0, '| tags    | ["mer","été"] |');
+pwg_case('an unknown format is refused before the command runs', ['test.format', '--format=yaml'], 2, '--format takes "table" or "json"');
+pwg_case('format never reaches the callback args', ['test.ok', '--format=json'], 0, null, '"format"');
+
 echo "registration guards\n";
 reg_case('duplicate name is rejected',
   '$cli->add_command("x.a", "cb"); $cli->add_command("x.a", "cb");',

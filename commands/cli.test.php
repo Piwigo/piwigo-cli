@@ -304,3 +304,23 @@ function cli_test_pages(array $args)
 
   return PwgCommand::SUCCESS;
 }
+
+// the two shapes --format applies to: a list of things, and one thing
+$cli->add_command('test.format', 'cli_test_format',
+  array(
+    'description' => 'Demo of table(), record() and --format',
+    'hidden' => true,
+    'boot' => 'none',
+  )
+);
+function cli_test_format(array $args)
+{
+  PwgCommand::table([
+    ['id' => 12, 'name' => 'Vacances', 'photos' => 3],
+    ['id' => 13, 'name' => 'Noël', 'photos' => 0],
+  ]);
+
+  PwgCommand::record(['id' => 12, 'name' => 'Vacances', 'private' => false, 'tags' => ['mer', 'été']]);
+
+  return PwgCommand::SUCCESS;
+}

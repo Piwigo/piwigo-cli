@@ -72,7 +72,9 @@ WHERE
     return PwgCommand::INVALID;
   }
 
-  PwgCommand::writeJson($user);
+  // a field/value table by default, the object itself with --format=json
+  PwgCommand::record($user);
+
   return PwgCommand::SUCCESS;
 }
 
