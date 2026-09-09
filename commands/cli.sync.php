@@ -8,7 +8,7 @@ global $cli;
 // it, its sub-folders sub-albums, every photo lands in the album of its folder
 $cli->add_command('sync', 'cli_sync',
   array(
-    'description' => 'Import a directory into the gallery, through the same path as a web upload. The directory becomes an album, its sub-folders sub-albums, every photo lands in the album of its folder (underscores become spaces). Photos are moved into upload/, a photo already in the gallery is only linked to the album. Albums are found by name before being created: running it again is safe. Symbolic links are skipped. The account running it must write into upload/ and read the directory. Start with --dry-run.',
+    'description' => 'Import a directory: its folders become albums, its photos are uploaded',
     'boot' => 'full',
     'operands' => [
       'directory' => [
