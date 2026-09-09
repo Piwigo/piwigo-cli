@@ -186,6 +186,9 @@ reg_case('a global short cannot be taken',
 reg_case('two args of one command cannot share a short',
   '$cli->add_command("x.a", "cb", ["args" => ["size" => ["short" => "s"], "sort" => ["short" => "s"]]]);',
   'used by both "size" and "sort"');
+reg_case('a short must be a single letter',
+  '$cli->add_command("x.a", "cb", ["args" => ["dirs-only" => ["short" => "do", "flag" => true]]]);',
+  'short "do" of "dirs-only" must be a single letter');
 
 echo "help\n";
 pwg_case('pwg --help succeeds', ['--help'], 0, 'Available commands:');

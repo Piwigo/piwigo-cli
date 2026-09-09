@@ -41,7 +41,6 @@ $cli->add_command('maintenance.unlock', 'cli_unlock_gallery',
 function cli_unlock_gallery()
 {
   // a locked gallery stops the full boot, this one stays on the light one
-  include_once(PHPWG_ROOT_PATH.'include/functions.inc.php');
 
   $query = "SELECT * FROM ".CONFIG_TABLE." WHERE param = 'gallery_locked'";
   $result = pwg_db_fetch_assoc(pwg_query($query));
@@ -73,11 +72,13 @@ $cli->add_command('maintenance.update.albums_info', 'cli_update_albums_info',
 );
 function cli_update_albums_info()
 {
-  include_once(PHPWG_ROOT_PATH.'admin/include/functions.php');
-
   if (PwgCommand::is_dry_run())
   {
-    [$nb_albums] = pwg_db_fetch_row(pwg_query('SELECT COUNT(*) FROM '.CATEGORIES_TABLE));
+    $query = '
+SELECT COUNT(*)
+  FROM '.CATEGORIES_TABLE.'
+;';
+    [$nb_albums] = pwg_db_fetch_row(pwg_query($query));
     PwgCommand::writeln('would refresh '.$nb_albums.' albums: integrity, uppercats, ranks, user cache');
     return PwgCommand::SUCCESS;
   }
@@ -102,11 +103,13 @@ $cli->add_command('maintenance.update.photos_info', 'cli_update_photos_info',
 );
 function cli_update_photos_info()
 {
-  include_once(PHPWG_ROOT_PATH.'admin/include/functions.php');
-
   if (PwgCommand::is_dry_run())
   {
-    [$nb_photos] = pwg_db_fetch_row(pwg_query('SELECT COUNT(*) FROM '.IMAGES_TABLE));
+    $query = '
+SELECT COUNT(*)
+  FROM '.IMAGES_TABLE.'
+;';
+    [$nb_photos] = pwg_db_fetch_row(pwg_query($query));
     PwgCommand::writeln('would refresh '.$nb_photos.' photos: integrity, paths, rating scores, user cache');
     return PwgCommand::SUCCESS;
   }
@@ -135,7 +138,10 @@ function cli_repair_opti_db()
   if (PwgCommand::is_dry_run())
   {
     $tables = array();
-    $result = pwg_query('SHOW TABLES LIKE \''.$prefixeTable.'%\'');
+    $query = '
+SHOW TABLES LIKE \''.$prefixeTable.'%\'
+;';
+    $result = pwg_query($query);
     while ($row = pwg_db_fetch_row($result))
     {
       $tables[] = $row[0];

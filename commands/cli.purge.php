@@ -11,9 +11,11 @@ $cli->add_command('purge.user_cache', 'cli_purge_user_cache',
 );
 function cli_purge_user_cache()
 {
-  include_once(PHPWG_ROOT_PATH.'admin/include/functions.php');
-
-  [$nb_users] = pwg_db_fetch_row(pwg_query('SELECT COUNT(*) FROM '.USER_CACHE_TABLE));
+  $query = '
+SELECT COUNT(*)
+  FROM '.USER_CACHE_TABLE.'
+;';
+  [$nb_users] = pwg_db_fetch_row(pwg_query($query));
 
   if (PwgCommand::is_dry_run())
   {
@@ -36,8 +38,6 @@ $cli->add_command('purge.orphan_tags', 'cli_purge_orphan_tags',
 );
 function cli_purge_orphan_tags()
 {
-  include_once(PHPWG_ROOT_PATH.'admin/include/functions.php');
-
   $orphans = get_orphan_tags();
 
   if (0 === count($orphans))
@@ -67,7 +67,11 @@ $cli->add_command('purge.history_details', 'cli_purge_history_details',
 );
 function cli_purge_history_details()
 {
-  [$nb_rows] = pwg_db_fetch_row(pwg_query('SELECT COUNT(*) FROM '.HISTORY_TABLE));
+  $query = '
+SELECT COUNT(*)
+  FROM '.HISTORY_TABLE.'
+;';
+  [$nb_rows] = pwg_db_fetch_row(pwg_query($query));
 
   if (0 == $nb_rows)
   {
@@ -87,7 +91,11 @@ function cli_purge_history_details()
     return PwgCommand::ERROR;
   }
 
-  pwg_query('DELETE FROM '.HISTORY_TABLE);
+  $query = '
+DELETE
+  FROM '.HISTORY_TABLE.'
+;';
+  pwg_query($query);
   pwg_activity('system', ACTIVITY_SYSTEM_CORE, 'maintenance', array('maintenance_action' => 'history_detail'));
 
   PwgCommand::success('History details purged');
@@ -102,7 +110,11 @@ $cli->add_command('purge.history_summary', 'cli_purge_history_summary',
 );
 function cli_purge_history_summary()
 {
-  [$nb_rows] = pwg_db_fetch_row(pwg_query('SELECT COUNT(*) FROM '.HISTORY_SUMMARY_TABLE));
+  $query = '
+SELECT COUNT(*)
+  FROM '.HISTORY_SUMMARY_TABLE.'
+;';
+  [$nb_rows] = pwg_db_fetch_row(pwg_query($query));
 
   if (0 == $nb_rows)
   {
@@ -122,7 +134,11 @@ function cli_purge_history_summary()
     return PwgCommand::ERROR;
   }
 
-  pwg_query('DELETE FROM '.HISTORY_SUMMARY_TABLE);
+  $query = '
+DELETE
+  FROM '.HISTORY_SUMMARY_TABLE.'
+;';
+  pwg_query($query);
   pwg_activity('system', ACTIVITY_SYSTEM_CORE, 'maintenance', array('maintenance_action' => 'history_summary'));
 
   PwgCommand::success('History summary purged');
@@ -141,7 +157,12 @@ function cli_purge_sessions()
 
   // same clause as pwg_session_gc(), the core has no function to count them
   $expired = pwg_db_date_to_ts('NOW()').' - '.pwg_db_date_to_ts('expiration').' > '.$conf['session_length'];
-  [$nb_expired] = pwg_db_fetch_row(pwg_query('SELECT COUNT(*) FROM '.SESSIONS_TABLE.' WHERE '.$expired));
+  $query = '
+SELECT COUNT(*)
+  FROM '.SESSIONS_TABLE.'
+  WHERE '.$expired.'
+;';
+  [$nb_expired] = pwg_db_fetch_row(pwg_query($query));
   $orphans = cli_orphan_sessions();
 
   if (0 == $nb_expired and 0 === count($orphans))
@@ -160,7 +181,12 @@ function cli_purge_sessions()
 
   if (count($orphans) > 0)
   {
-    pwg_query('DELETE FROM '.SESSIONS_TABLE.' WHERE id IN (\''.implode("','", $orphans).'\')');
+    $query = '
+DELETE
+  FROM '.SESSIONS_TABLE.'
+  WHERE id IN (\''.implode("','", $orphans).'\')
+;';
+    pwg_query($query);
   }
 
   pwg_activity('system', ACTIVITY_SYSTEM_CORE, 'maintenance', array('maintenance_action' => 'sessions'));
@@ -174,8 +200,16 @@ function cli_orphan_sessions()
 {
   global $conf;
 
-  $sessions = query2array('SELECT id, data FROM '.SESSIONS_TABLE);
-  $user_ids = query2array('SELECT '.$conf['user_fields']['id'].' AS id FROM '.USERS_TABLE, 'id', null);
+  $query = '
+SELECT id, data
+  FROM '.SESSIONS_TABLE.'
+;';
+  $sessions = query2array($query);
+  $query = '
+SELECT '.$conf['user_fields']['id'].' AS id
+  FROM '.USERS_TABLE.'
+;';
+  $user_ids = query2array($query, 'id', null);
 
   $orphans = array();
   foreach ($sessions as $session)
@@ -197,7 +231,12 @@ $cli->add_command('purge.feeds', 'cli_purge_feeds',
 );
 function cli_purge_feeds()
 {
-  [$nb_feeds] = pwg_db_fetch_row(pwg_query('SELECT COUNT(*) FROM '.USER_FEED_TABLE.' WHERE last_check IS NULL'));
+  $query = '
+SELECT COUNT(*)
+  FROM '.USER_FEED_TABLE.'
+  WHERE last_check IS NULL
+;';
+  [$nb_feeds] = pwg_db_fetch_row(pwg_query($query));
 
   if (0 == $nb_feeds)
   {
@@ -211,7 +250,12 @@ function cli_purge_feeds()
     return PwgCommand::SUCCESS;
   }
 
-  pwg_query('DELETE FROM '.USER_FEED_TABLE.' WHERE last_check IS NULL');
+  $query = '
+DELETE
+  FROM '.USER_FEED_TABLE.'
+  WHERE last_check IS NULL
+;';
+  pwg_query($query);
   pwg_activity('system', ACTIVITY_SYSTEM_CORE, 'maintenance', array('maintenance_action' => 'feeds'));
 
   PwgCommand::success($nb_feeds.' feeds purged');
@@ -226,7 +270,11 @@ $cli->add_command('purge.search', 'cli_purge_search',
 );
 function cli_purge_search()
 {
-  [$nb_rows] = pwg_db_fetch_row(pwg_query('SELECT COUNT(*) FROM '.SEARCH_TABLE));
+  $query = '
+SELECT COUNT(*)
+  FROM '.SEARCH_TABLE.'
+;';
+  [$nb_rows] = pwg_db_fetch_row(pwg_query($query));
 
   if (0 == $nb_rows)
   {
@@ -246,7 +294,11 @@ function cli_purge_search()
     return PwgCommand::ERROR;
   }
 
-  pwg_query('DELETE FROM '.SEARCH_TABLE);
+  $query = '
+DELETE
+  FROM '.SEARCH_TABLE.'
+;';
+  pwg_query($query);
   pwg_activity('system', ACTIVITY_SYSTEM_CORE, 'maintenance', array('maintenance_action' => 'search'));
 
   PwgCommand::success('Search history purged');
@@ -286,8 +338,6 @@ $cli->add_command('purge.derivatives', 'cli_purge_derivatives',
 );
 function cli_purge_derivatives()
 {
-  include_once(PHPWG_ROOT_PATH.'admin/include/functions.php');
-
   if (PwgCommand::is_dry_run())
   {
     PwgCommand::writeln('would delete every generated size in '.PWG_DERIVATIVE_DIR.', they are rebuilt on demand');

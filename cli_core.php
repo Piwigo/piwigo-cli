@@ -92,10 +92,11 @@ final class PwgCli {
       return PwgCommand::ERROR;
     }
 
-    // include constants only in minimal init mode
+    // minimal boot gets the constants and the core functions here, the full boot gets them from common.inc.php
     if ('full' !== $this->boot_level)
     {
       include_once(PHPWG_ROOT_PATH.'include/constants.php');
+      include_once(PHPWG_ROOT_PATH.'include/functions.inc.php');
     }
 
     return PwgCommand::SUCCESS;
@@ -129,6 +130,7 @@ final class PwgCli {
     // we need to fake this variable because we're not longer
     // in HTTP context but in CLI context
     $_SERVER['REMOTE_ADDR'] = '127.0.0.1';
+    $_SERVER['HTTP_HOST'] = 'localhost';
 
     // _data is the only directory the full boot itself writes to (Smarty
     // compiles into _data/templates_c), probe it ignoring data_dir_checked
@@ -201,6 +203,12 @@ final class PwgCli {
 
     try
     {
+      // a full boot command is an admin page: give it what admin.php gives
+      if ('full' === $this->boot_level)
+      {
+        include_once(PHPWG_ROOT_PATH.'admin/include/functions.php');
+      }
+
       $exit = call_user_func($command['callback'], $this->current_command['args']);
     }
     catch (\Throwable $th)
@@ -269,6 +277,7 @@ final class PwgCli {
       'user',
       'maintenance',
       'purge',
+      'sync',
     ];
 
     // the test suite sets the env var, so fixtures stay invisible everywhere else
@@ -613,6 +622,12 @@ final class PwgCli {
       }
       if (isset($arg_infos['short']))
       {
+        // a short is one letter, "-do" would never match anything and nobody would know
+        if (1 !== strlen($arg_infos['short']))
+        {
+          PwgCommand::error('Command "'.$name.'": short "'.$arg_infos['short'].'" of "'.$arg_name.'" must be a single letter');
+          exit(PwgCommand::ERROR);
+        }
         if (isset($reserved_shorts[$arg_infos['short']]))
         {
           PwgCommand::error('Command "'.$name.'": short "'.$arg_infos['short'].'" is reserved by the global option "'.$reserved_shorts[$arg_infos['short']].'"');
