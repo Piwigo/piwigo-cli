@@ -292,7 +292,7 @@ final class PwgCli {
       'purge',
       'plugin',
       'theme',
-      'sync',
+      'import',
     ];
 
     // the test suite sets the env var, so fixtures stay invisible everywhere else

@@ -6,7 +6,7 @@ global $cli;
 // photos go through add_uploaded_file() like a web upload: moved into upload/,
 // deduplicated by md5, metadata read. The directory becomes an album named after
 // it, its sub-folders sub-albums, every photo lands in the album of its folder
-$cli->add_command('sync', 'cli_sync',
+$cli->add_command('import', 'cli_import',
   array(
     'description' => 'Import a directory: its folders become albums, its photos are uploaded',
     'details' => [
@@ -15,8 +15,8 @@ $cli->add_command('sync', 'cli_sync',
       'Symbolic links are skipped, and so is anything the gallery already references. The account running it must be able to write into upload/ and to read the directory. Start with --dry-run.',
     ],
     'examples' => [
-      'pwg sync ~/Vacances_2024 --dry-run',
-      'pwg sync /srv/dropbox --unwrap -p 12 --keep',
+      'pwg import ~/Vacances_2024 --dry-run',
+      'pwg import /srv/dropbox --unwrap -p 12 --keep',
     ],
     'boot' => 'full',
     'operands' => [
@@ -60,7 +60,7 @@ $cli->add_command('sync', 'cli_sync',
     ],
   )
 );
-function cli_sync(array $args)
+function cli_import(array $args)
 {
   global $conf;
 
@@ -249,7 +249,7 @@ SELECT id
   {
     PwgCommand::progress_start($total, PwgCommand::is_dry_run() ? 'checking' : 'importing');
   }
-  cli_sync_folder($directory, $parent_id, 0, $photos, $args['flat'], !$args['unwrap'], $ctx);
+  cli_import_folder($directory, $parent_id, 0, $photos, $args['flat'], !$args['unwrap'], $ctx);
   PwgCommand::progress_finish();
 
   // like the web upload form at the end of a batch: the lounge holds the new photos,
@@ -283,15 +283,15 @@ SELECT id
 
 // one folder: its album (found, created, or "+" in dry-run), its photos, then its sub-folders.
 // $parent_id: null is the root, 0 is an album that only exists in the dry-run so far
-function cli_sync_folder(string $dir, ?int $parent_id, int $depth, array $photos, bool $flat, bool $own_album, array &$ctx)
+function cli_import_folder(string $dir, ?int $parent_id, int $depth, array $photos, bool $flat, bool $own_album, array &$ctx)
 {
   $indent = str_repeat('  ', $depth);
 
   if ($own_album)
   {
-    // same rule as the legacy sync: underscores become spaces in album names
+    // same rule as the legacy synchronization: underscores become spaces in album names
     $name = str_replace('_', ' ', basename($dir));
-    $album_id = 0 === $parent_id ? null : cli_sync_find_album($name, $parent_id);
+    $album_id = 0 === $parent_id ? null : cli_import_find_album($name, $parent_id);
 
     if (null !== $album_id)
     {
@@ -328,11 +328,11 @@ function cli_sync_folder(string $dir, ?int $parent_id, int $depth, array $photos
     $depth--;
   }
 
-  $result = cli_sync_photos($photos[$dir] ?? [], $album_id, $name, $indent, $ctx);
+  $result = cli_import_photos($photos[$dir] ?? [], $album_id, $name, $indent, $ctx);
 
   if ($own_album or $result['total'] > 0)
   {
-    PwgCommand::writeln($indent.$label.'  '.cli_sync_photo_summary($result));
+    PwgCommand::writeln($indent.$label.'  '.cli_import_photo_summary($result));
   }
 
   if ($flat)
@@ -350,12 +350,12 @@ function cli_sync_folder(string $dir, ?int $parent_id, int $depth, array $photos
     {
       continue;
     }
-    cli_sync_folder($sub, $album_id, $depth + 1, $photos, $flat, true, $ctx);
+    cli_import_folder($sub, $album_id, $depth + 1, $photos, $flat, true, $ctx);
   }
 }
 
 // the photos of one folder into one album, through the same path as a web upload
-function cli_sync_photos(array $paths, ?int $album_id, string $label, string $indent, array &$ctx): array
+function cli_import_photos(array $paths, ?int $album_id, string $label, string $indent, array &$ctx): array
 {
   $result = ['total' => count($paths), 'new' => 0, 'dup' => 0, 'err' => 0];
   if (0 === $result['total'])
@@ -371,8 +371,8 @@ function cli_sync_photos(array $paths, ?int $album_id, string $label, string $in
   {
     $md5s[$path] = md5_file($path);
   }
-  $known = cli_sync_find_photos(array_values($md5s));
-  $referenced = cli_sync_find_referenced($paths);
+  $known = cli_import_find_photos(array_values($md5s));
+  $referenced = cli_import_find_referenced($paths);
 
   foreach ($paths as $path)
   {
@@ -431,7 +431,7 @@ function cli_sync_photos(array $paths, ?int $album_id, string $label, string $in
       $result[$kind]++;
       $ctx['seen'][$md5] = $id;
 
-      // the caddie is for what was actually added, like the web sync
+      // the caddie is for what was actually added, like the web upload form
       if (null === $existing)
       {
         $ctx['ids'][] = $id;
@@ -466,7 +466,7 @@ function cli_sync_photos(array $paths, ?int $album_id, string $label, string $in
 }
 
 // "3 photos: 2 new, 1 already there"
-function cli_sync_photo_summary(array $result): string
+function cli_import_photo_summary(array $result): string
 {
   if (0 === $result['total'])
   {
@@ -490,7 +490,7 @@ function cli_sync_photo_summary(array $result): string
   return $result['total'].' photo'.(1 === $result['total'] ? '' : 's').': '.implode(', ', $parts);
 }
 
-function cli_sync_find_album(string $name, ?int $parent_id): ?int
+function cli_import_find_album(string $name, ?int $parent_id): ?int
 {
   $query = '
 SELECT id
@@ -504,7 +504,7 @@ SELECT id
 }
 
 // md5 => id for the photos the gallery already stores, whatever their album
-function cli_sync_find_photos(array $md5s): array
+function cli_import_find_photos(array $md5s): array
 {
   $query = '
 SELECT md5sum, id
@@ -516,7 +516,7 @@ SELECT md5sum, id
 }
 
 // absolute path => id for the files the gallery already references by path (physical albums)
-function cli_sync_find_referenced(array $paths): array
+function cli_import_find_referenced(array $paths): array
 {
   // the core stores paths relative to its root, "./galleries/2024/img.jpg"
   $root = rtrim(realpath(PHPWG_ROOT_PATH), '/').'/';

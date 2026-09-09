@@ -30,7 +30,7 @@ pwg doctor
 
 The CLI can be disabled with `$conf['allow_cli'] = false` in `local/config/config.inc.php` (defaults live in `cli_default_config.php`).
 
-Run the CLI as the web server user (`sudo -u www-data ...`): what it creates then belongs to the gallery like a web upload. Under another account `sync` still works and says so: the web server can read the imported photos, not rewrite them.
+Run the CLI as the web server user (`sudo -u www-data ...`): what it creates then belongs to the gallery like a web upload. Under another account `import` still works and says so: the web server can read the imported photos, not rewrite them.
 
 The CLI writes its own log file (`_data/logs/log_cli_*.txt`) so it never fights with the web server for the same one. This relies on `$conf['enable_plugins']` being true, which is the default. With plugins disabled the CLI shares the web server log file, and must then run as the web server user.
 
