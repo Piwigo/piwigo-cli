@@ -7,6 +7,7 @@ $cli->add_command('user.list', 'cli_user_list',
   array(
     'description' => 'List users',
     'boot' => 'full',
+    'pagination' => true,
   )
 );
 function cli_user_list(array $args) 
@@ -25,7 +26,9 @@ SELECT
 ;';
   $users = query2array($query);
 
-  PwgCommand::table($users);
+  PwgCommand::table(PwgCommand::paginate($users, $args));
+  PwgCommand::pagination_footer('user');
+
   return PwgCommand::SUCCESS;
 }
 
@@ -180,6 +183,13 @@ $cli->add_command('user.delete', 'cli_user_delete',
 function cli_user_delete(array $args)
 {
   global $conf, $user;
+
+  // a "multiple" operand may legally be empty, but doing nothing quietly is no answer
+  if (0 === count($args['username_or_id']))
+  {
+    PwgCommand::error('Which user? Give at least one username or id (see "pwg user list")');
+    return PwgCommand::INVALID;
+  }
 
   // the accounts the gallery needs, same list as the web service
   $protected = [$user['id'], $conf['guest_id'], $conf['default_user_id'], $conf['webmaster_id']];

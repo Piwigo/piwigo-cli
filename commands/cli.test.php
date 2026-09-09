@@ -275,3 +275,26 @@ function cli_test_php_error(array $args)
   PwgCommand::success('survived');
   return PwgCommand::SUCCESS;
 }
+
+// a paginated listing: the engine adds --page and --limit, PwgCommand slices
+$cli->add_command('test.pages', 'cli_test_pages',
+  array(
+    'description' => 'Demo of the shared pagination',
+    'hidden' => true,
+    'boot' => 'none',
+    'pagination' => true,
+  )
+);
+function cli_test_pages(array $args)
+{
+  $rows = [];
+  foreach (range(1, 25) as $i)
+  {
+    $rows[] = ['n' => $i, 'name' => 'row '.$i];
+  }
+
+  PwgCommand::table(PwgCommand::paginate($rows, $args));
+  PwgCommand::pagination_footer('row');
+
+  return PwgCommand::SUCCESS;
+}

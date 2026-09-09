@@ -28,6 +28,9 @@ final class PwgCommand
   private static int $progress_width = 0;
   private static ?bool $progress_tty = null;
 
+  // pagination state, filled by paginate() and read by pagination_footer()
+  private static array $pagination = [];
+
   private function __construct() {}
 
   /**
@@ -333,6 +336,64 @@ final class PwgCommand
   public static function error(string $message)
   {
     self::errln(self::paint('[ERROR] ', self::RED). $message);
+  }
+
+  /**
+  * Cut a list of rows down to the page the user asked for. The command must declare
+  * "'pagination' => true", which gives it --page and --limit. Print the table, then
+  * pagination_footer() to tell where the reader is.
+  */
+  public static function paginate(array $rows, array $args): array
+  {
+    $page = max(1, (int) $args['page']);
+    $limit = max(1, (int) $args['limit']);
+    $total = count($rows);
+
+    self::$pagination = [
+      'page' => $page,
+      'pages' => max(1, (int) ceil($total / $limit)),
+      'total' => $total,
+    ];
+
+    return array_slice($rows, ($page - 1) * $limit, $limit);
+  }
+
+  /**
+  * Print where the reader is in a paginated listing, and how to see the next page.
+  * Says nothing when everything fits on one page.
+  */
+  public static function pagination_footer(string $unit = 'result')
+  {
+    if (0 === count(self::$pagination))
+    {
+      return;
+    }
+
+    $page = self::$pagination['page'];
+    $pages = self::$pagination['pages'];
+    $total = self::$pagination['total'];
+    $counted = $total.' '.$unit.(1 === $total ? '' : 's');
+
+    // asking beyond the end shows an empty table, say why instead of "page 3/2"
+    if ($page > $pages)
+    {
+      self::writeln('there is no page '.$page.', '.$counted.' fit in '.$pages.' page'.(1 === $pages ? '' : 's'));
+      return;
+    }
+
+    if ($pages < 2)
+    {
+      return;
+    }
+
+    $line = 'page '.$page.'/'.$pages.', '.$counted;
+
+    if ($page < $pages)
+    {
+      $line .= ', --page '.($page + 1).' for the next';
+    }
+
+    self::writeln($line);
   }
 
   /**

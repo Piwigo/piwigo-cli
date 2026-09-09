@@ -2,6 +2,19 @@
 if (!defined('PHPWG_ROOT_PATH')) die('Hacking attempt!');
 
 final class PwgCli {
+  // "'pagination' => true" in a spec adds these two, so every listing paginates the same way
+  private const PAGINATION_ARGS = [
+    'page' => [
+      'info' => 'Which page of results to show',
+      'default' => 1,
+    ],
+    'limit' => [
+      'short' => 'l',
+      'info' => 'How many results per page',
+      'default' => 20,
+    ],
+  ];
+
   private const GLOBAL_ARGS = [
     'help' => [
       'short' => 'h',
@@ -277,6 +290,7 @@ final class PwgCli {
       'user',
       'maintenance',
       'purge',
+      'plugin',
       'sync',
     ];
 
@@ -601,6 +615,21 @@ final class PwgCli {
     {
       PwgCommand::error('Command "'.$name.'" is already registered');
       exit(PwgCommand::ERROR);
+    }
+
+    // injected before the checks below, so a command claiming "page" or "-l" is refused there
+    if (!empty($spec['pagination']))
+    {
+      foreach (self::PAGINATION_ARGS as $arg_name => $arg_infos)
+      {
+        if (isset($spec['args'][$arg_name]))
+        {
+          PwgCommand::error('Command "'.$name.'": arg "'.$arg_name.'" is reserved, the command declares "pagination"');
+          exit(PwgCommand::ERROR);
+        }
+
+        $spec['args'][$arg_name] = $arg_infos;
+      }
     }
 
     // global options are engine territory: neither their names nor their shorts can be taken

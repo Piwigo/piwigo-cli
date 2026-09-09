@@ -167,6 +167,17 @@ pwg_case('the @ operator is honored, the command goes on', ['test.php_error', '-
 pwg_case('a deprecation is silent by default', ['test.php_error', '--level', 'deprecated'], 0, 'survived', 'old way');
 pwg_case('a deprecation shows with --verbose', ['test.php_error', '--level', 'deprecated', '--verbose'], 0, '[NOTICE] old way');
 
+echo "pagination\n";
+pwg_case('a paginated command gets --page and --limit', ['test.pages', '--help'], 0, '-l, --limit');
+pwg_case('the first page is the default', ['test.pages'], 0, 'row 20', 'row 21');
+pwg_case('--page moves to the next slice', ['test.pages', '--page', '2'], 0, 'row 21', 'row 20');
+pwg_case('--limit changes the slice size', ['test.pages', '-l', '5'], 0, 'row 5', 'row 6');
+pwg_case('the footer says where you are and how to go on', ['test.pages', '-l', '10'], 0, 'page 1/3, 25 rows, --page 2 for the next');
+pwg_case('the last page has no next hint', ['test.pages', '-l', '10', '--page', '3'], 0, 'page 3/3', 'for the next');
+pwg_case('a page beyond the end says so', ['test.pages', '--page', '3'], 0, 'there is no page 3, 25 rows fit in 2 pages');
+pwg_case('it says so even when everything fits on one page', ['test.pages', '-l', '50', '--page', '2'], 0, 'there is no page 2, 25 rows fit in 1 page');
+pwg_case('a single page prints no footer', ['test.pages', '-l', '50'], 0, 'row 25', 'page 1/1');
+
 echo "registration guards\n";
 reg_case('duplicate name is rejected',
   '$cli->add_command("x.a", "cb"); $cli->add_command("x.a", "cb");',
@@ -186,6 +197,12 @@ reg_case('a global short cannot be taken',
 reg_case('two args of one command cannot share a short',
   '$cli->add_command("x.a", "cb", ["args" => ["size" => ["short" => "s"], "sort" => ["short" => "s"]]]);',
   'used by both "size" and "sort"');
+reg_case('a paginated command cannot redeclare page',
+  '$cli->add_command("x.a", "cb", ["pagination" => true, "args" => ["page" => ["default" => 1]]]);',
+  '"page" is reserved, the command declares "pagination"');
+reg_case('a paginated command cannot take the -l short',
+  '$cli->add_command("x.a", "cb", ["pagination" => true, "args" => ["level" => ["short" => "l"]]]);',
+  'used by both "level" and "limit"');
 reg_case('a short must be a single letter',
   '$cli->add_command("x.a", "cb", ["args" => ["dirs-only" => ["short" => "do", "flag" => true]]]);',
   'short "do" of "dirs-only" must be a single letter');
