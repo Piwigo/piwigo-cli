@@ -297,6 +297,7 @@ final class PwgCli {
     $command_files = [
       'system',
       'album',
+      'photo',
       'user',
       'maintenance',
       'purge',

@@ -196,5 +196,33 @@ bench_case('album', 'delete-bad-mode', 2, ['--photos takes keep, orphans, all'])
 bench_case('album', 'delete-empty-album', 0, ['no photo inside', "delete_categories(45, 'no_delete')"], ['What should happen']);
 bench_case('album', 'delete-nothing', 2, ['Which album?']);
 
+echo "photo\n";
+bench_case('photo', 'list', 0, ['| sunset.jpg |', '| size_kb |']);
+bench_case('photo', 'list-album', 0, ['| 900 |']);
+bench_case('photo', 'list-unknown-album', 2, ['album #999 does not exist']);
+bench_case('photo', 'info', 0, ['| albums', 'Vacances', '["mer","été"]']);
+bench_case('photo', 'info-unknown', 2, ['photo #999 does not exist']);
+bench_case('photo', 'move', 0, ['move_images_to_categories(900,901, 7)', '2 photos now in album #7'], ['associate_images']);
+bench_case('photo', 'move-add', 0, ['associate_images_to_categories(900, 7)'], ['move_images_to_categories']);
+bench_case('photo', 'move-dry', 0, ['would move 1 photo into album #7'], ['move_images_to_categories']);
+bench_case('photo', 'move-no-album', 2, ['Into which album?']);
+bench_case('photo', 'move-unknown-photo', 2, ['Photo not found: 999'], ['move_images_to_categories']);
+bench_case('photo', 'delete', 0, ['delete_elements(900, true)', '1 photo deleted']);
+bench_case('photo', 'delete-keep-files', 0, ['delete_elements(900, false)']);
+bench_case('photo', 'delete-dry', 0, ['would delete 2 photos and their files'], ['delete_elements']);
+bench_case('photo', 'delete-refused', 1, ['aborted'], ['delete_elements']);
+bench_case('photo', 'delete-nothing', 2, ['Which photo?']);
+bench_case('photo', 'import', 0, ["add_uploaded_file('one.jpg', album=12)", 'empty_lounge()', '1 photo imported into album #12']);
+bench_case('photo', 'import-one-fails', 1, ['two.jpg: disk full', '1 photo imported', '1 failed']);
+bench_case('photo', 'import-dry', 0, ['would import 1 file into album #12', 'moving them out of their directory'], ['add_uploaded_file']);
+bench_case('photo', 'import-bad-type', 2, ['is not a type this gallery accepts'], ['add_uploaded_file']);
+bench_case('photo', 'import-missing-file', 2, ['is not a file']);
+bench_case('photo', 'import-no-album', 2, ['Into which album?']);
+bench_case('photo', 'sync-ids', 0, ['sync_metadata(2 photos)', 'metadata read again for 2 photos']);
+bench_case('photo', 'sync-album', 0, ['sync_metadata(2 photos)']);
+bench_case('photo', 'sync-all', 0, ['sync_metadata(2 photos)']);
+bench_case('photo', 'sync-dry', 0, ['would read the metadata of 2 photos again'], ['sync_metadata']);
+bench_case('photo', 'sync-nothing', 2, ['Which photos? Give ids, --album or --all']);
+
 echo "\n".$passed.' passed, '.$failed.' failed'."\n";
 exit($failed > 0 ? 1 : 0);

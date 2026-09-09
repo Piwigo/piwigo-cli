@@ -306,6 +306,9 @@ if (is_file(dirname(__DIR__, 3).'/local/config/database.inc.php'))
   pwg_case('album list prints a table', ['album', 'list'], 0, '| photos |');
   pwg_case('album list can stay at the top level', ['album', 'list', '-p', 'root'], 0, '| id |');
   pwg_case('an unknown album is rejected', ['album', 'list', '-p', '999999'], 2, 'does not exist');
+  pwg_case('photo list prints a table', ['photo', 'list', '-l', '3'], 0, '| file');
+  pwg_case('photo list can stay in one album', ['photo', 'list', '-p', '1', '-l', '3'], 0, null, 'does not exist');
+  pwg_case('an unknown photo is rejected', ['photo', 'info', '999999'], 2, 'does not exist');
 
   echo "dry runs (installed)\n";
   pwg_case('purge orphan tags counts without deleting', ['purge', 'orphan_tags', '--dry-run'], 0, null, 'deleted');
@@ -320,6 +323,9 @@ if (is_file(dirname(__DIR__, 3).'/local/config/database.inc.php'))
   pwg_case('album add reports what it would create', ['album', 'add', 'pwg cli test album', '--dry-run'], 0, 'would create a public album');
   pwg_case('album delete counts the photos and every outcome', ['album', 'delete', '1', '--dry-run'], 0, 'would delete', 'What should happen');
   pwg_case('album edit refuses an unknown status', ['album', 'edit', '1', '-s', 'secret', '--dry-run'], 2, '--status takes');
+  pwg_case('photo sync-metadata counts what it would read', ['photo', 'sync-metadata', '--all', '--dry-run'], 0, 'would read the metadata');
+  pwg_case('photo move needs a target album', ['photo', 'move', '1', '--dry-run'], 2, 'Into which album?');
+  pwg_case('photo import refuses a missing file', ['photo', 'import', '-p', '1', '/nope.jpg', '--dry-run'], 2, 'is not a file');
 
   echo "import dry runs (installed)\n";
   // a throwaway tree, two real jpeg files made here so nothing binary lives in the repo
