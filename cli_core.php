@@ -291,6 +291,7 @@ final class PwgCli {
       'maintenance',
       'purge',
       'plugin',
+      'theme',
       'sync',
     ];
 
