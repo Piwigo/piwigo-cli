@@ -30,7 +30,7 @@ pwg doctor
 
 The CLI can be disabled with `$conf['allow_cli'] = false` in `local/config/config.inc.php` (defaults live in `cli_default_config.php`).
 
-Run the CLI as the web server user (`sudo -u www-data ...`): what it creates then belongs to the gallery like a web upload. Under another account `import` still works and says so: the web server can read the imported photos, not rewrite them.
+Run the CLI as the user owning the gallery files, usually the one the web server runs as: what it creates then belongs to the gallery like a web upload. That user is `www-data` on a plain Apache install, `nginx` in the official Piwigo docker image, something else elsewhere, so `doctor` names the one your files actually belong to and prints the exact command for your setup, including the `docker exec -u` form when it runs in a container. Under another account `import` still works and says so: the web server can read the imported photos, not rewrite them.
 
 The CLI writes its own log file (`_data/logs/log_cli_*.txt`) so it never fights with the web server for the same one. This relies on `$conf['enable_plugins']` being true, which is the default. With plugins disabled the CLI shares the web server log file, and must then run as the web server user.
 

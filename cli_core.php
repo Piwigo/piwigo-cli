@@ -175,7 +175,12 @@ final class PwgCli {
       if ($verbose)
       {
         PwgCommand::error('"'.$blocking.'" is missing or not writable, this command needs to write in it');
-        PwgCommand::errln('give write access ("chmod -R 777 '.$conf['data_location'].'") or run as the web server user ("sudo -u www-data php '.CLI_ROOT_PATH.'bin/pwg.php ...")');
+        $web_user = cli_web_user();
+        PwgCommand::errln('give write access ("chmod -R 777 '.$conf['data_location'].'") or run as the web server user'.(null === $web_user ? '' : ':'));
+        if (null !== $web_user)
+        {
+          PwgCommand::errln('  '.cli_run_as($web_user, 'php '.CLI_ROOT_PATH.'bin/pwg.php ...'));
+        }
       }
       return PwgCommand::ERROR;
     }
@@ -754,6 +759,120 @@ final class PwgCli {
   {
     return $this->commands;
   }
+}
+
+// walk the PATH instead of calling "which": no shell_exec, which many hosts disable
+function cli_has_program(string $program): bool
+{
+  foreach (explode(PATH_SEPARATOR, (string) getenv('PATH')) as $directory)
+  {
+    if ('' !== $directory and is_executable(rtrim($directory, '/').'/'.$program))
+    {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+// the user the web server runs PHP as, read off files only it writes: the compiled
+// templates, then its log files. Null when the gallery has not written anything yet.
+function cli_web_user(): ?string
+{
+  global $conf;
+
+  if (!function_exists('posix_getpwuid'))
+  {
+    return null;
+  }
+
+  $data = PHPWG_ROOT_PATH.rtrim($conf['data_location'], '/').'/';
+  $written = glob($data.'templates_c/*.php') ?: [];
+
+  foreach (glob($data.trim($conf['log_dir'], '/').'/*.txt') ?: [] as $log)
+  {
+    // our own log files carry our own owner, they prove nothing about the web server
+    if (0 !== strpos(basename($log), 'log_cli_'))
+    {
+      $written[] = $log;
+    }
+  }
+
+  foreach ($written as $file)
+  {
+    $owner = posix_getpwuid(fileowner($file));
+
+    if (isset($owner['name']))
+    {
+      return $owner['name'];
+    }
+  }
+
+  return null;
+}
+
+// can that user write there, from owner, group and mode alone: ACLs are not read
+function cli_user_can_write(string $user, string $path): bool
+{
+  if (!function_exists('posix_getpwnam') or !file_exists($path))
+  {
+    return false;
+  }
+
+  $account = posix_getpwnam($user);
+
+  if (false === $account)
+  {
+    return false;
+  }
+
+  $mode = fileperms($path);
+
+  if ($mode & 0002)
+  {
+    return true;
+  }
+
+  if (fileowner($path) === $account['uid'])
+  {
+    return (bool) ($mode & 0200);
+  }
+
+  $group = posix_getgrgid(filegroup($path));
+  $in_group = filegroup($path) === $account['gid']
+    || (false !== $group && in_array($user, $group['members'], true));
+
+  return $in_group && ($mode & 0020);
+}
+
+// what the CLI runs as right now, for the messages
+function cli_process_user(): ?string
+{
+  if (!function_exists('posix_geteuid'))
+  {
+    return null;
+  }
+
+  return posix_getpwuid(posix_geteuid())['name'] ?? (string) posix_geteuid();
+}
+
+// how to run something as another user, with what this system actually has
+function cli_run_as(string $user, string $command): string
+{
+  foreach (['sudo', 'doas'] as $elevator)
+  {
+    if (cli_has_program($elevator))
+    {
+      return $elevator.' -u '.$user.' '.$command;
+    }
+  }
+
+  if (is_file('/.dockerenv'))
+  {
+    return 'docker exec -u '.$user.' <container> '.$command;
+  }
+
+  return 'log in as '.$user.' and run: '.$command;
 }
 
 function cli_promote_user()

@@ -201,7 +201,12 @@ SELECT id
     if (!is_writable($target))
     {
       PwgCommand::error('"'.$conf['upload_dir'].'" is not writable, the photos cannot be imported');
-      PwgCommand::errln('give write access or run as the web server user ("sudo -u www-data ...")');
+      $web_user = cli_web_user();
+      PwgCommand::errln('give write access or run as the web server user'.(null === $web_user ? '' : ':'));
+      if (null !== $web_user)
+      {
+        PwgCommand::errln('  '.cli_run_as($web_user, 'php '.CLI_ROOT_PATH.'bin/pwg.php import ...'));
+      }
       return PwgCommand::ERROR;
     }
 

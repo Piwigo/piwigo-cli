@@ -237,5 +237,36 @@ bench_case('photo', 'deriv-bad-jobs', 2, ['--jobs takes a number between 1 and 3
 bench_case('photo', 'deriv-no-selection', 2, ['Which photos?']);
 bench_case('photo', 'deriv-outcomes', 0, ['is there: generated', 'nothing written: failed', 'no answer at all: skipped', 'i.php error: failed']);
 
+echo "system\n";
+bench_case('system', 'root-with-sudo', 0, ['run it as root:  sudo php /x/bin/pwg.php shortcut', 'sudo found: true']);
+bench_case('system', 'root-without-sudo', 0, ['this system has no sudo:  php /x/bin/pwg.php shortcut --revert', 'sudo found: false'], ['sudo php']);
+bench_case('system', 'program-lookup', 0, ['sudo: true', 'doas: false']);
+bench_case('system', 'run-as-with-sudo', 0, ['sudo -u nginx php /x/bin/pwg.php import ...']);
+bench_case('system', 'run-as-without-sudo', 0, ['log in as nginx and run: php /x/bin/pwg.php import ...'], ['sudo']);
+bench_case('system', 'web-user', 0, ['nothing written yet: NULL', 'only a cli log: NULL', 'a web log, owned by me here: true', 'a compiled template, owned by me here: true']);
+bench_case('system', 'can-write', 0, ['0755 owner true, nobody false', '0555 owner false, nobody false', '0775 owner true, nobody false', '0777 owner true, nobody true', 'unknown account: false', 'missing path: false']);
+
+echo "install\n";
+bench_case('install', 'install-nothing', 2, ['--db-name is needed', '--db-user is needed', '--admin-user is needed', '--admin-password is needed', '--admin-email is needed']);
+bench_case('install', 'install-bad-values', 2, ['not a valid table prefix', 'cannot hold a quote', 'not a valid email address', 'not one of the languages']);
+bench_case('install', 'install-dry', 0, ['pwg@db.local / piwigo', 'would write the config file', 'config file written: false'], ['execute_sqlfile']);
+bench_case('install', 'install-refused', 1, ['aborted', 'config file written: false'], ['execute_sqlfile']);
+bench_case('install', 'install-ok', 0, [
+  'execute_sqlfile(piwigo_structure-mysql.sql, piwigo_ -> pwg_)',
+  'execute_sqlfile(config.sql, piwigo_ -> pwg_)',
+  "languages->activate('fr_FR')",
+  'activate_core_themes()',
+  'mass_inserts(users, 2 rows: id,username,password,mail_address)',
+  'create_user_infos(1,2, language=fr_FR)',
+  'mass_inserts(upgrade, 2 rows',
+  "pwg_activity('system', 'install')",
+  "\$conf['db_password'] = 'se\\'cret';",
+  "\$prefixeTable = 'pwg_';",
+  'installed, log in as "linty"',
+]);
+bench_case('install', 'install-already', 1, ['Piwigo is already installed'], ['execute_sqlfile']);
+bench_case('install', 'install-halfway', 0, ['an install left halfway', 'rewritten', "\$conf['db_base'] = 'piwigo';", 'execute_sqlfile(config.sql'], ["db_base'] = 'half'"]);
+bench_case('install', 'install-prefix-taken', 1, ['already holds a Piwigo with the prefix "pwg_"'], ['execute_sqlfile']);
+
 echo "\n".$passed.' passed, '.$failed.' failed'."\n";
 exit($failed > 0 ? 1 : 0);

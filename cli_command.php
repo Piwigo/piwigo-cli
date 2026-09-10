@@ -122,6 +122,28 @@ final class PwgCommand
   }
 
   /**
+  * Same as prompt(), with the typing hidden. A password has no reason to stay on the
+  * screen or in a scrollback. Falls back to a plain prompt where stty is out of reach.
+  */
+  public static function prompt_hidden(string $message): string
+  {
+    if (!function_exists('shell_exec') or 'Windows' === PHP_OS_FAMILY or !stream_isatty(STDIN))
+    {
+      return self::prompt($message);
+    }
+
+    $was = shell_exec('stty -g');
+    shell_exec('stty -echo');
+    $answer = self::prompt($message);
+    shell_exec('stty '.(null === $was ? 'echo' : trim($was)));
+
+    // the terminal swallowed the newline along with the typing
+    self::writeln('');
+
+    return $answer;
+  }
+
+  /**
   * Ask before doing something destructive. Defaults to no: --yes is the only
   * way to say yes non-interactively, so a cron without it aborts safely.
   */

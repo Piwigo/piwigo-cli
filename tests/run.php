@@ -327,6 +327,7 @@ if (is_file(dirname(__DIR__, 3).'/local/config/database.inc.php'))
   pwg_case('album delete counts the photos and every outcome', ['album', 'delete', '1', '--dry-run'], 0, 'would delete', 'What should happen');
   pwg_case('album edit refuses an unknown status', ['album', 'edit', '1', '-s', 'secret', '--dry-run'], 2, '--status takes');
   pwg_case('photo sync-metadata counts what it would read', ['photo', 'sync-metadata', '--all', '--dry-run'], 0, 'would read the metadata');
+  pwg_case('install refuses an installed gallery', ['install'], 1, 'already installed');
   pwg_case('photo generate-derivatives counts what is missing', ['photo', 'generate-derivatives', '--all', '--dry-run'], 0, null, 'generated');
   pwg_case('photo generate-derivatives refuses an unknown size', ['photo', 'generate-derivatives', '--all', '--type', 'enormous'], 2, 'no such size');
   pwg_case('photo generate-derivatives refuses a silly jobs count', ['photo', 'generate-derivatives', '--all', '--jobs', '99'], 2, 'between 1 and 32');

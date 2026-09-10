@@ -10,6 +10,8 @@ define('PEM_URL', 'https://piwigo.org/ext');
 define('PHPWG_VERSION', '17.0.0');
 
 include CLI_ROOT_PATH.'cli_command.php';
+// cli_core.php also holds the file-scope helpers the commands call, cli_run_as and friends
+include CLI_ROOT_PATH.'cli_core.php';
 
 // add_command() is the engine's, a bench only wants the callbacks it declares
 class BenchCli
