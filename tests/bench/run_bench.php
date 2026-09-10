@@ -229,6 +229,13 @@ bench_case('photo', 'sync-album', 0, ['sync_metadata(2 photos)']);
 bench_case('photo', 'sync-all', 0, ['sync_metadata(2 photos)']);
 bench_case('photo', 'sync-dry', 0, ['would read the metadata of 2 photos again'], ['sync_metadata']);
 bench_case('photo', 'sync-nothing', 2, ['Which photos? Give ids, --album or --all']);
+bench_case('photo', 'deriv-dry', 0, ['would generate 2 sizes', '| square | 1', '| small  | 1'], ['thumb']);
+bench_case('photo', 'deriv-one-type', 0, ['would generate 1 size', 'square']);
+bench_case('photo', 'deriv-nothing-missing', 0, ['Every size is there already']);
+bench_case('photo', 'deriv-bad-type', 2, ['no such size: huge', 'square, thumb, small, wide']);
+bench_case('photo', 'deriv-bad-jobs', 2, ['--jobs takes a number between 1 and 32']);
+bench_case('photo', 'deriv-no-selection', 2, ['Which photos?']);
+bench_case('photo', 'deriv-outcomes', 0, ['is there: generated', 'nothing written: failed', 'no answer at all: skipped', 'i.php error: failed']);
 
 echo "\n".$passed.' passed, '.$failed.' failed'."\n";
 exit($failed > 0 ? 1 : 0);

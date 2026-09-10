@@ -15,6 +15,37 @@ define('IMAGES_TABLE', 'imgs');
 define('IMAGE_CATEGORY_TABLE', 'image_category');
 define('IMAGE_TAG_TABLE', 'image_tag');
 define('TAGS_TABLE', 'tags');
+define('PWG_DERIVATIVE_DIR', '_data/i/');
+
+// photo 900 is a jpeg with a thumb already there, 901 is a pdf: nothing to resize
+class SrcImage
+{
+  public $rel_path;
+  private $mimetype;
+
+  function __construct($row) { $this->rel_path = $row['path']; $this->mimetype = 'pdf' === pathinfo($row['path'], PATHINFO_EXTENSION); }
+  function is_mimetype() { return $this->mimetype; }
+  function get_path() { return PHPWG_ROOT_PATH.$this->rel_path; }
+}
+class DerivativeImage
+{
+  private $type;
+  private $src;
+
+  function __construct($type, $src) { $this->type = $type; $this->src = $src; }
+  // "wide" is bigger than the photo, the core falls back to another size
+  function get_type() { return 'wide' === $this->type ? 'small' : $this->type; }
+  function get_path()
+  {
+    $loc = substr($this->src->rel_path, 2);
+    return PHPWG_ROOT_PATH.PWG_DERIVATIVE_DIR.substr_replace($loc, '-'.substr($this->type, 0, 2), strrpos($loc, '.'), 0);
+  }
+}
+class ImageStdParams
+{
+  static function get_defined_type_map() { return ['square' => 1, 'thumb' => 1, 'small' => 1, 'wide' => 1]; }
+  static function get_by_type($type) { return (object) ['last_mod_time' => 0]; }
+}
 
 $conf = [
   'file_ext' => ['jpg', 'pdf'],
@@ -31,6 +62,15 @@ file_put_contents($inbox.'/two.jpg', 'photo-two');
 file_put_contents($inbox.'/notes.pdf', 'not a picture');
 register_shutdown_function('bench_rmtree', $inbox);
 register_shutdown_function('bench_rmtree', rtrim(PHPWG_ROOT_PATH, '/'));
+
+// the derivative cache as the command will find it: thumb fresh, small stale, square absent
+@mkdir(PHPWG_ROOT_PATH.'upload', 0777, true);
+@mkdir(PHPWG_ROOT_PATH.PWG_DERIVATIVE_DIR.'upload', 0777, true);
+file_put_contents(PHPWG_ROOT_PATH.'upload/sunset.jpg', 'photo');
+touch(PHPWG_ROOT_PATH.'upload/sunset.jpg', time() - 1000);
+file_put_contents(PHPWG_ROOT_PATH.PWG_DERIVATIVE_DIR.'upload/sunset-th.jpg', 'thumb');
+file_put_contents(PHPWG_ROOT_PATH.PWG_DERIVATIVE_DIR.'upload/sunset-sm.jpg', 'small');
+touch(PHPWG_ROOT_PATH.PWG_DERIVATIVE_DIR.'upload/sunset-sm.jpg', time() - 2000);
 
 $photos = [900 => 'Sunset', 901 => 'Plage'];
 $albums = [7 => 'Divers', 12 => 'Vacances'];
@@ -71,6 +111,15 @@ function query2array($query, $key = null, $value = null)
     }
 
     return $rows;
+  }
+
+  // the columns the derivative listing needs
+  if (false !== strpos($query, 'representative_ext'))
+  {
+    return [
+      ['id' => 900, 'path' => './upload/sunset.jpg', 'representative_ext' => null, 'width' => 1600, 'height' => 1200, 'rotation' => 0],
+      ['id' => 901, 'path' => './upload/notes.pdf', 'representative_ext' => 'jpg', 'width' => 0, 'height' => 0, 'rotation' => 0],
+    ];
   }
 
   // the albums one photo belongs to
@@ -126,6 +175,7 @@ function pwg_activity() {}
 include CLI_ROOT_PATH.'commands/cli.photo.php';
 
 $page = ['page' => 1, 'limit' => 20];
+$blank_deriv = ['photo_id' => [], 'album' => null, 'all' => false, 'type' => null, 'jobs' => 1];
 
 bench_run([
   'list' => function () use ($page) { return cli_photo_list(['album' => null, 'search' => null] + $page); },
@@ -168,5 +218,33 @@ bench_run([
   'sync-album' => function () { return cli_photo_sync_metadata(['photo_id' => [], 'album' => '12', 'all' => false]); },
   'sync-all' => function () { return cli_photo_sync_metadata(['photo_id' => [], 'album' => null, 'all' => true]); },
   'sync-dry' => function () { PwgCommand::set_dry_run(); return cli_photo_sync_metadata(['photo_id' => [], 'album' => null, 'all' => true]); },
+  'deriv-dry' => function () use ($blank_deriv) {
+    PwgCommand::set_dry_run();
+    return cli_photo_generate_derivatives(['all' => true] + $blank_deriv);
+  },
+  'deriv-one-type' => function () use ($blank_deriv) {
+    PwgCommand::set_dry_run();
+    return cli_photo_generate_derivatives(['all' => true, 'type' => 'square'] + $blank_deriv);
+  },
+  'deriv-nothing-missing' => function () use ($blank_deriv) {
+    return cli_photo_generate_derivatives(['all' => true, 'type' => 'thumb'] + $blank_deriv);
+  },
+  'deriv-bad-type' => function () use ($blank_deriv) {
+    return cli_photo_generate_derivatives(['all' => true, 'type' => 'huge'] + $blank_deriv);
+  },
+  'deriv-bad-jobs' => function () use ($blank_deriv) {
+    return cli_photo_generate_derivatives(['all' => true, 'jobs' => '0'] + $blank_deriv);
+  },
+  'deriv-no-selection' => function () use ($blank_deriv) {
+    return cli_photo_generate_derivatives($blank_deriv);
+  },
+  'deriv-outcomes' => function () {
+    $written = PHPWG_ROOT_PATH.PWG_DERIVATIVE_DIR.'upload/sunset-th.jpg';
+    PwgCommand::writeln('json and the file is there: '.cli_photo_derivative_outcome('{"url":"http://localhost/x.jpg"}', $written));
+    PwgCommand::writeln('json but nothing written: '.cli_photo_derivative_outcome('{"url":"x"}', PHPWG_ROOT_PATH.'nope.jpg'));
+    PwgCommand::writeln('no answer at all: '.cli_photo_derivative_outcome('', $written));
+    PwgCommand::writeln('an i.php error: '.cli_photo_derivative_outcome("Source not found\nsecond line", $written));
+    return PwgCommand::SUCCESS;
+  },
   'sync-nothing' => function () { return cli_photo_sync_metadata(['photo_id' => [], 'album' => null, 'all' => false]); },
 ]);
