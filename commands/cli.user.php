@@ -359,6 +359,120 @@ function cli_user_add(array $args)
   return PwgCommand::SUCCESS;
 }
 
+$cli->add_command('user.rebuild_cache', 'cli_user_rebuild_cache',
+  array(
+    'description' => 'Rebuild the permission cache of the users',
+    'boot' => 'full',
+    'details' => [
+      'Piwigo keeps, for every user, the albums and photos that user is allowed to see. Changing permissions, adding photos or moving albums marks that cache as out of date, and the next visit of each user pays for the rebuild.',
+      'This command pays it instead, from a shell or a cron job, so that no visitor waits. A user whose cache is already up to date is left alone, --force rebuilds it anyway.',
+      'Without an argument it walks every user. "pwg purge user_cache" does the opposite, it drops the cache without rebuilding it.',
+    ],
+    'examples' => [
+      'pwg user rebuild_cache',
+      'pwg user rebuild_cache gorge 42',
+      'pwg user rebuild_cache --force',
+    ],
+    'args' => [
+      'force' => [
+        'short' => 'f',
+        'info' => 'Rebuild even the caches that are up to date',
+        'flag' => true,
+      ],
+    ],
+    'operands' => [
+      'username_or_id' => [
+        'info' => 'Users to rebuild, by username or id, every user by default',
+        'multiple' => true,
+      ],
+    ],
+  )
+);
+function cli_user_rebuild_cache(array $args)
+{
+  global $conf;
+
+  if (count($args['username_or_id']) > 0)
+  {
+    $targets = [];
+    $unknown = [];
+    foreach ($args['username_or_id'] as $wanted)
+    {
+      $user_id = cli_user_id($wanted);
+
+      if (null === $user_id)
+      {
+        $unknown[] = $wanted;
+      }
+      else
+      {
+        $targets[] = $user_id;
+      }
+    }
+
+    if (count($unknown) > 0)
+    {
+      PwgCommand::error('no such user: '.implode(', ', $unknown));
+      return PwgCommand::INVALID;
+    }
+  }
+  else
+  {
+    $query = '
+SELECT '.$conf['user_fields']['id'].' AS id
+  FROM '.USERS_TABLE.'
+;';
+    $targets = array_map('intval', query2array($query, null, 'id'));
+  }
+
+  // a user with no cache row at all is out of date too, so list the fresh ones
+  $query = '
+SELECT user_id
+  FROM '.USER_CACHE_TABLE.'
+  WHERE need_update = \'false\'
+;';
+  $fresh = array_map('intval', query2array($query, null, 'user_id'));
+  $todo = $args['force'] ? $targets : array_values(array_diff($targets, $fresh));
+
+  if (0 === count($todo))
+  {
+    PwgCommand::success('Every user cache is up to date');
+    return PwgCommand::SUCCESS;
+  }
+
+  $what = count($todo).' user'.(1 === count($todo) ? '' : 's');
+
+  if (PwgCommand::is_dry_run())
+  {
+    PwgCommand::writeln('would rebuild the cache of '.$what);
+    return PwgCommand::SUCCESS;
+  }
+
+  // getuserdata() only rebuilds what the gallery marked as out of date
+  if ($args['force'])
+  {
+    $query = '
+UPDATE '.USER_CACHE_TABLE.'
+  SET need_update = \'true\'
+  WHERE user_id IN ('.implode(',', $todo).')
+;';
+    pwg_query($query);
+  }
+
+  PwgCommand::progress_start(count($todo), 'rebuilding');
+
+  foreach ($todo as $user_id)
+  {
+    getuserdata($user_id, true);
+    PwgCommand::progress_advance();
+  }
+
+  PwgCommand::progress_finish();
+
+  PwgCommand::success('cache rebuilt for '.$what);
+  return PwgCommand::SUCCESS;
+}
+
 // "gorge" or "42" to a user id, null when the gallery has no such user
 function cli_user_id(string $username_or_id): ?int
 {

@@ -86,6 +86,12 @@ bench_case('user', 'delete', 0, ['guest" (#2) is a protected account', '"1" (#1)
 bench_case('user', 'delete-unknown', 2, ['not found: ghost'], ['delete_user(']);
 bench_case('user', 'delete-refused', 1, ['aborted'], ['delete_user(']);
 bench_case('user', 'delete-nothing', 2, ['Which user?']);
+bench_case('user', 'cache-dry', 0, ['would rebuild the cache of 2 users'], ['getuserdata']);
+bench_case('user', 'cache', 0, ['getuserdata(5, true)', 'getuserdata(6, true)', 'cache rebuilt for 2 users'], ['getuserdata(1']);
+bench_case('user', 'cache-named', 0, ['getuserdata(5, true)', '1 user'], ['getuserdata(6']);
+bench_case('user', 'cache-fresh', 0, ['Every user cache is up to date'], ['getuserdata']);
+bench_case('user', 'cache-force', 0, ["SET need_update = 'true' WHERE user_id IN (1)", 'getuserdata(1, true)']);
+bench_case('user', 'cache-unknown', 2, ['no such user: ghost'], ['getuserdata']);
 
 echo "import\n";
 bench_case('import', 'dry', 0,

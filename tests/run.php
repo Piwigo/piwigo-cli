@@ -317,6 +317,8 @@ if (is_file(dirname(__DIR__, 3).'/local/config/database.inc.php'))
   pwg_case('purge derivatives reports the directory', ['purge', 'derivatives', '--dry-run'], 0, 'would delete every generated size');
   pwg_case('maintenance repair_db counts the tables', ['maintenance', 'repair_db', '--dry-run'], 0, 'would repair, reorder and optimize');
   pwg_case('user edit shows the fields it would change', ['user', 'edit', '1', '--level', '4', '--dry-run'], 0, 'would become');
+  pwg_case('user rebuild_cache counts the stale caches', ['user', 'rebuild_cache', '--dry-run'], 0, null, 'rebuilt');
+  pwg_case('user rebuild_cache refuses an unknown user', ['user', 'rebuild_cache', 'ghost-that-never-was'], 2, 'no such user');
   pwg_case('user edit refuses an empty change', ['user', 'edit', '1', '--dry-run'], 2, 'Nothing to change');
   pwg_case('user delete protects the webmaster', ['user', 'delete', '1', '--dry-run'], 0, 'protected account');
   pwg_case('plugin deactivate refuses an unknown plugin', ['plugin', 'deactivate', 'zzz_nope', '--dry-run'], 2, 'not found in plugins/');

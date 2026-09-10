@@ -6,6 +6,7 @@ include __DIR__.'/bench.inc.php';
 
 define('USERS_TABLE', 'users');
 define('USER_INFOS_TABLE', 'user_infos');
+define('USER_CACHE_TABLE', 'user_cache');
 
 $conf = [
   'user_fields' => ['id' => 'id', 'username' => 'username', 'email' => 'mail_address'],
@@ -18,7 +19,12 @@ $names = [1 => 'webmaster', 2 => 'guest', 5 => 'alice', 6 => 'bob'];
 
 function get_username($id) { global $names; return $names[$id] ?? false; }
 function get_userid($name) { global $names; $id = array_search($name, $names, true); return false === $id ? false : $id; }
-function pwg_query($query) { return $query; }
+function pwg_query($query)
+{
+  // only the writes are worth a line, the reads are answered by the fetchers below
+  if (0 === strpos(ltrim($query), 'UPDATE')) { bench_core('query: '.trim(preg_replace('/\s+/', ' ', $query), '; ')); }
+  return $query;
+}
 function pwg_db_fetch_row($query)
 {
   global $names;
@@ -29,7 +35,14 @@ function pwg_db_fetch_assoc($query)
   return ['username' => 'alice', 'email' => 'alice@old.tld', 'status' => 'normal',
           'level' => '0', 'language' => 'en_UK', 'theme' => 'modus'];
 }
-function query2array($query, $key = null, $value = null) { return []; }
+function query2array($query, $key = null, $value = null)
+{
+  // webmaster #1 and guest #2 are up to date, alice #5 and bob #6 are not
+  if (false !== strpos($query, 'FROM user_cache')) { return [1, 2]; }
+  if (false !== strpos($query, 'FROM users')) { return [1, 2, 5, 6]; }
+  return [];
+}
+function getuserdata($id, $use_cache) { bench_core('getuserdata('.$id.', '.var_export($use_cache, true).')'); }
 function generate_key($length) { return str_repeat('x', $length); }
 function register_user($login, $password, $mail, $notify_admin, &$errors, $notify_user)
 {
@@ -113,5 +126,24 @@ bench_run([
   },
   'delete-nothing' => function () {
     return cli_user_delete(['username_or_id' => []]);
+  },
+  'cache-dry' => function () {
+    PwgCommand::set_dry_run();
+    return cli_user_rebuild_cache(['username_or_id' => [], 'force' => false]);
+  },
+  'cache' => function () {
+    return cli_user_rebuild_cache(['username_or_id' => [], 'force' => false]);
+  },
+  'cache-named' => function () {
+    return cli_user_rebuild_cache(['username_or_id' => ['alice'], 'force' => false]);
+  },
+  'cache-fresh' => function () {
+    return cli_user_rebuild_cache(['username_or_id' => ['webmaster'], 'force' => false]);
+  },
+  'cache-force' => function () {
+    return cli_user_rebuild_cache(['username_or_id' => ['webmaster'], 'force' => true]);
+  },
+  'cache-unknown' => function () {
+    return cli_user_rebuild_cache(['username_or_id' => ['ghost'], 'force' => false]);
   },
 ]);
