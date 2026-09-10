@@ -312,6 +312,7 @@ if (is_file(dirname(__DIR__, 3).'/local/config/database.inc.php'))
 
   echo "dry runs (installed)\n";
   pwg_case('purge orphan tags counts without deleting', ['purge', 'orphan_tags', '--dry-run'], 0, null, 'deleted');
+  pwg_case('purge orphan photos counts without deleting', ['purge', 'orphan_photos', '--dry-run'], 0, null, 'deleted');
   pwg_case('purge sessions counts without deleting', ['purge', 'sessions', '--dry-run'], 0, null, 'purged');
   pwg_case('purge derivatives reports the directory', ['purge', 'derivatives', '--dry-run'], 0, 'would delete every generated size');
   pwg_case('maintenance repair_db counts the tables', ['maintenance', 'repair_db', '--dry-run'], 0, 'would repair, reorder and optimize');

@@ -59,6 +59,62 @@ function cli_purge_orphan_tags()
   return PwgCommand::SUCCESS;
 }
 
+$cli->add_command('purge.orphan_photos', 'cli_purge_orphan_photos',
+  array(
+    'description' => 'Delete photos that belong to no album',
+    'boot' => 'full',
+    'details' => [
+      'An orphan photo is a photo no album points to any more. It stays in the database and on the disk, but no visitor can reach it. The admin lists them in the Batch Manager, under the "no album" prefilter.',
+      'Photos waiting in the lounge are not orphans yet, they are on their way to an album, so this command leaves them alone.',
+      'The files are deleted with the photos, like the admin does: keeping them would leave unreferenced files in the upload directory. Run this as the web server user, a file the CLI cannot delete stops the command.',
+    ],
+    'examples' => [
+      'pwg purge orphan_photos --dry-run',
+      'pwg purge orphan_photos -y',
+    ],
+  )
+);
+function cli_purge_orphan_photos()
+{
+  $orphans = get_orphans();
+
+  if (0 === count($orphans))
+  {
+    PwgCommand::success('No orphan photo');
+    return PwgCommand::SUCCESS;
+  }
+
+  $what = count($orphans).' orphan photo'.(1 === count($orphans) ? '' : 's').' and their files';
+
+  if (PwgCommand::is_dry_run())
+  {
+    PwgCommand::writeln('would delete '.$what);
+    return PwgCommand::SUCCESS;
+  }
+
+  if (!PwgCommand::confirm('Delete '.$what.'?'))
+  {
+    PwgCommand::writeln('aborted');
+    return PwgCommand::ERROR;
+  }
+
+  // delete_elements() names every id in its queries, so keep the batches small
+  $deleted = 0;
+  PwgCommand::progress_start(count($orphans), 'deleting');
+
+  foreach (array_chunk($orphans, 500) as $chunk)
+  {
+    $deleted+= delete_elements($chunk, true);
+    PwgCommand::progress_advance(count($chunk));
+  }
+
+  PwgCommand::progress_finish();
+  invalidate_user_cache();
+
+  PwgCommand::success($deleted.' orphan photo'.(1 === $deleted ? '' : 's').' deleted');
+  return PwgCommand::SUCCESS;
+}
+
 $cli->add_command('purge.history_details', 'cli_purge_history_details',
   array(
     'description' => 'Purge history details',
