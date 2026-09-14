@@ -121,7 +121,7 @@ bench_case('plugin', 'uninstall', 0, ["perform_action('uninstall', 'AdminTools')
 bench_case('plugin', 'uninstall-refused', 1, ['Their tables and settings are dropped', 'aborted'], ['perform_action']);
 bench_case('plugin', 'delete-itself', 0, ['is the plugin this command runs from, skipped'], ['perform_action']);
 bench_case('plugin', 'nothing-named', 2, ['Which plugin?']);
-bench_case('plugin', 'search-all', 0, ['| Plugin 1 ', 'page 1/3, 25 plugins, --page 2 for the next']);
+bench_case('plugin', 'search-all', 0, ['| Plugin 1 ', '|       80k |', '|       980 |', 'page 1/3, 25 plugins, --page 2 for the next'], ['| 80 |']);
 bench_case('plugin', 'search-page-3', 0, ['page 3/3'], ['for the next']);
 bench_case('plugin', 'search-beyond', 0, ['there is no page 9, 25 plugins fit in 3 pages']);
 bench_case('plugin', 'search-term', 0, ['Admin Helper 8', 'Plugin 3'], ['Plugin 1 ']);
@@ -229,7 +229,7 @@ bench_case('photo', 'sync-album', 0, ['sync_metadata(2 photos)']);
 bench_case('photo', 'sync-all', 0, ['sync_metadata(2 photos)']);
 bench_case('photo', 'sync-dry', 0, ['would read the metadata of 2 photos again'], ['sync_metadata']);
 bench_case('photo', 'sync-nothing', 2, ['Which photos? Give ids, --album or --all']);
-bench_case('photo', 'deriv-dry', 0, ['would generate 2 sizes', '| square | 1', '| small  | 1'], ['thumb']);
+bench_case('photo', 'deriv-dry', 0, ['would generate 2 sizes', '| square |       1 |', '| small  |       1 |'], ['thumb']);
 bench_case('photo', 'deriv-one-type', 0, ['would generate 1 size', 'square']);
 bench_case('photo', 'deriv-nothing-missing', 0, ['Every size is there already']);
 bench_case('photo', 'deriv-bad-type', 2, ['no such size: huge', 'square, thumb, small, wide']);
@@ -245,6 +245,33 @@ bench_case('system', 'run-as-with-sudo', 0, ['sudo -u nginx php /x/bin/pwg.php i
 bench_case('system', 'run-as-without-sudo', 0, ['log in as nginx and run: php /x/bin/pwg.php import ...'], ['sudo']);
 bench_case('system', 'web-user', 0, ['nothing written yet: NULL', 'only a cli log: NULL', 'a web log, owned by me here: true', 'a compiled template, owned by me here: true']);
 bench_case('system', 'can-write', 0, ['0755 owner true, nobody false', '0555 owner false, nobody false', '0775 owner true, nobody false', '0777 owner true, nobody true', 'unknown account: false', 'missing path: false']);
+
+echo "backup\n";
+bench_case('backup', 'backup-no-path', 2, ['--path is needed']);
+bench_case('backup', 'backup-no-dir', 2, ['is not a directory, create it first']);
+bench_case('backup', 'backup-dry', 0, ["query: SHOW TABLES LIKE 'pwg\\\\_%'", '2 tables of gallery, about 1.5 MB in the database, with mysqldump', 'would write', '/piwigo-', 'files written: 0']);
+bench_case('backup', 'backup-php', 0, ['with the php connection, no mysqldump on the PATH', 'unbuffered=true', "-- Piwigo 17.0.0 backup of gallery", 'DROP TABLE IF EXISTS `pwg_images`;', "INSERT INTO `pwg_images` VALUES ('900','Sunset o\\'clock'),\n('901',NULL);", 'SET FOREIGN_KEY_CHECKS = 1;', 'written, '], ['fake mysqldump']);
+bench_case('backup', 'backup-tool', 0, ['with mysqldump', '-- fake mysqldump: --defaults-extra-file=', '--user=pwg --host=db.local --port=3307 --single-transaction --quick --add-drop-table --default-character-set=utf8mb4 gallery pwg_config pwg_images', 'CREATE TABLE `pwg_config` (x int);', 'secrets left behind: 0'], ["se\"cret", 'unbuffered']);
+bench_case('backup', 'backup-tool-fails', 1, ['mysqldump failed: mysqldump: Got error: 1045: Access denied', 'files left: 0']);
+
+echo "update\n";
+bench_case('update', 'up-nothing', 0, ['both on branch 17, nothing to migrate'], ['INSERT INTO']);
+bench_case('update', 'up-stamp', 0, ['database on branch 16', "conf_update_param('piwigo_db_version', '17')", 'invalidate_user_cache(true)', '0 migrations run, database on branch 17'], ['INSERT INTO']);
+bench_case('update', 'up-dry', 0, ['2 migrations to run: 190, 191', 'stamped with branch 17', 'nothing done'], ['INSERT INTO']);
+bench_case('update', 'up-refused', 1, ['1 migration to run: 190', 'aborted'], ['INSERT INTO']);
+bench_case('update', 'up-ok', 0, ['scripts ran: ALTER TABLE pwg_images ADD COLUMN bench', "INSERT INTO pwg_upgrade (id, applied, description) VALUES ('190', NOW(), '[migration to 17.0.0, 0.001 s] add a column')", "conf_delete_param('last_major_update')", '1 migration run, database on branch 17'], ['noise the core prints']);
+bench_case('update', 'up-failing', 1, ['migration 191: [mysql error 1060] Duplicate column name', "VALUES ('191', NOW(), '[migration to 17.0.0, 0.001 s] break something')", '2 migrations run, 1 with errors, database stamped 17 anyway']);
+bench_case('update', 'update-disabled', 1, ['core update is disabled']);
+bench_case('update', 'update-dev', 0, ['development version, nothing to compare with']);
+bench_case('update', 'update-unreachable', 1, ['could not read the version list on piwigo.org']);
+bench_case('update', 'update-latest', 0, ['Piwigo 17.0.0, latest version']);
+bench_case('update', 'update-list', 0, ['two updates are available', '17.0.2    minor, bug fixes only', '18.0.0    major', 'needs PHP 99.0', 'run "pwg update --to 18.0.0", piwigo.org recommends going there directly'], ['upgrade_to']);
+bench_case('update', 'update-docker', 0, ['Piwigo 17.0.0b (docker)', 'update the image: https://piwigo.org/guide-update-docker'], ['run "pwg update --to']);
+bench_case('update', 'update-bad-to', 2, ['"16.9.9" is not one of the versions piwigo.org offers: 17.0.2']);
+bench_case('update', 'update-php', 1, ['needs PHP 99.0', 'Upgrade PHP first'], ['upgrade_to']);
+bench_case('update', 'update-dry', 0, ["get_server_extensions('18.0.0')", 'plugins with no release for Piwigo 18.0.0 yet: EditorPlus, Bench', 'Always have a backup', 'would download Piwigo 18.0.0'], ['upgrade_to(']);
+bench_case('update', 'update-refused', 1, ['Update Piwigo 17.0.0 to 17.0.2?', 'aborted'], ['upgrade_to(']);
+bench_case('update', 'update-go', 0, ["upgrade_to('17.0.2', step=2)"], ['files updated to']);
 
 echo "install\n";
 bench_case('install', 'install-nothing', 2, ['--db-name is needed', '--db-user is needed', '--admin-user is needed', '--admin-password is needed', '--admin-email is needed']);

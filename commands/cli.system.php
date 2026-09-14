@@ -123,11 +123,24 @@ function cli_doctor(array $args)
 
       // same rule as common.inc.php: the db follows the branch, one digit since Piwigo 11
       $code_branch = get_branch_from_version($phpwg_version[1]);
+
+      // and the migration scripts the database has not run yet, what "pwg upgrade" would do
+      include_once(PHPWG_ROOT_PATH.'admin/include/functions_upgrade.php');
+      $applied = query2array('SELECT id FROM '.UPGRADE_TABLE.';', null, 'id');
+      $pending = count(array_diff(get_available_upgrade_ids(), $applied));
+      $behind = $db_version !== $code_branch || $pending > 0;
+
       $check(
-        $db_version === $code_branch || $is_git ? 'ok' : 'warn',
+        $behind ? 'warn' : 'ok',
         'version',
-        'code '.$phpwg_version[1].' / database '.($db_version ?? 'unknown').($db_version === $code_branch || $is_git ? '' : ', upgrade needed?')
+        'code '.$phpwg_version[1].' / database '.($db_version ?? 'unknown')
+          .($pending > 0 ? ', '.$pending.' migration'.(1 === $pending ? '' : 's').' pending' : '')
+          .($behind ? ', run "pwg upgrade"' : '')
       );
+
+      // and what piwigo.org has: a quick knock first, the core fetch has no timeout of its own
+      [$status, $detail] = cli_doctor_piwigo_org();
+      $check($status, 'piwigo.org', $detail);
     }
   }
 
@@ -443,6 +456,49 @@ function cli_shortcut(array $args)
   return PwgCommand::SUCCESS;
 }
 
+
+// the same question the admin Updates page asks piwigo.org, as a doctor line
+function cli_doctor_piwigo_org(): array
+{
+  global $conf;
+
+  $socket = @fsockopen('piwigo.org', 443, $errno, $errstr, 3);
+
+  if (false === $socket)
+  {
+    return ['warn', 'not reached, no update check'];
+  }
+
+  fclose($socket);
+
+  // what get_piwigo_new_versions() needs and a full boot would have given
+  include_once(PHPWG_ROOT_PATH.'admin/include/functions.php');
+  include_once(PHPWG_ROOT_PATH.'admin/include/updates.class.php');
+  defined('PHPWG_URL') or define('PHPWG_URL', 'https://piwigo.org');
+  $_SERVER['HTTP_HOST'] = $_SERVER['HTTP_HOST'] ?? 'localhost';
+  load_conf_from_db();
+
+  $versions = (new updates())->get_piwigo_new_versions();
+
+  if ($versions['is_dev'])
+  {
+    return ['ok', 'development version, no update check'];
+  }
+
+  if (!$versions['piwigo.org-checked'])
+  {
+    return ['warn', 'answered nothing readable'];
+  }
+
+  $offers = array_filter([$versions['minor'] ?? null, $versions['major'] ?? null]);
+
+  if (0 === count($offers))
+  {
+    return ['ok', 'latest version'];
+  }
+
+  return ['warn', implode(' and ', $offers).' available, run "pwg update"'];
+}
 
 // "sudo" is not everywhere: an Alpine container has none, and its root does not need one
 function cli_shortcut_as_root(string $command): string

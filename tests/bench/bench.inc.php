@@ -22,6 +22,21 @@ class BenchCli
 
 $cli = new BenchCli();
 
+// the engine turns warnings into exceptions for every command, a bench must do the same
+set_error_handler(function (int $errno, string $errstr, string $errfile, int $errline): bool {
+  if (!(error_reporting() & $errno))
+  {
+    return false;
+  }
+
+  if ($errno & (E_WARNING | E_USER_WARNING | E_USER_ERROR | E_RECOVERABLE_ERROR))
+  {
+    throw new ErrorException($errstr, 0, $errno, $errfile, $errline);
+  }
+
+  return true;
+});
+
 // the scenario asked for on the command line, and what the bench is allowed to do
 $bench_scenario = $argv[1] ?? '';
 

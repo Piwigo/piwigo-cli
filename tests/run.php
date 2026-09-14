@@ -153,7 +153,7 @@ pwg_case('dry-run reports without confirming nor destroying', ['test.confirm', '
 echo "io demo\n";
 pwg_case('piped answers feed prompt then confirm', ['test.io'], 0, 'hello Linty', null, "Linty\ny\n");
 pwg_case('closed stdin: prompt falls back, confirm aborts', ['test.io'], 1, 'hello anonymous');
-pwg_case('table aligns despite accents', ['test.io', '--dry-run'], 0, '| 12 | Vacances à Nîmes | 3      |');
+pwg_case('table aligns despite accents, numbers flush right', ['test.io', '--dry-run'], 0, '| 12 | Vacances à Nîmes |      3 |');
 pwg_case('writeln flattens nested arrays with the separator', ['test.io', '--dry-run'], 0, "nested arrays flatten:\none\ntwo\nend");
 
 echo "engine\n";
@@ -327,6 +327,9 @@ if (is_file(dirname(__DIR__, 3).'/local/config/database.inc.php'))
   pwg_case('album delete counts the photos and every outcome', ['album', 'delete', '1', '--dry-run'], 0, 'would delete', 'What should happen');
   pwg_case('album edit refuses an unknown status', ['album', 'edit', '1', '-s', 'secret', '--dry-run'], 2, '--status takes');
   pwg_case('photo sync-metadata counts what it would read', ['photo', 'sync-metadata', '--all', '--dry-run'], 0, 'would read the metadata');
+  pwg_case('upgrade reports the database state without touching it', ['upgrade', '--dry-run'], 0, null, 'INSERT');
+  pwg_case('backup needs a destination', ['backup'], 2, '--path is needed');
+  pwg_case('backup names the file without writing it', ['backup', '--path', sys_get_temp_dir(), '--dry-run'], 0, 'would write', 'written,');
   pwg_case('install refuses an installed gallery', ['install'], 1, 'already installed');
   pwg_case('photo generate-derivatives counts what is missing', ['photo', 'generate-derivatives', '--all', '--dry-run'], 0, null, 'generated');
   pwg_case('photo generate-derivatives refuses an unknown size', ['photo', 'generate-derivatives', '--all', '--type', 'enormous'], 2, 'no such size');
