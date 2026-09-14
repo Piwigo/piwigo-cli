@@ -348,6 +348,22 @@ final class PwgCommand
       }
     }
 
+    // a column holding nothing but numbers reads better flush right, a version like "1.2" does not count
+    $numeric = [];
+    foreach ($columns as $i => $key)
+    {
+      $numeric[$i] = !empty($rows);
+      foreach ($rows as $row)
+      {
+        $cell = (string) (((array) $row)[$key] ?? '');
+        if ('' !== $cell && !preg_match('/^-?\d+[kM]?$/', $cell))
+        {
+          $numeric[$i] = false;
+          break;
+        }
+      }
+    }
+
     $separator = '+';
     foreach ($widths as $width)
     {
@@ -365,23 +381,44 @@ final class PwgCommand
         $cells[] = $row[$key] ?? '';
       }
 
-      $lines[] = self::table_row($cells, $widths);
+      $lines[] = self::table_row($cells, $widths, $numeric);
     }
     $lines[] = $separator;
 
     self::writeln($lines);
   }
 
-  private static function table_row(array $cells, array $widths): string
+  private static function table_row(array $cells, array $widths, array $right = []): string
   {
     $line = '|';
     foreach ($widths as $i => $width)
     {
       $cell = (string) ($cells[$i] ?? '');
-      $line .= ' '.$cell.str_repeat(' ', $width - self::visible_width($cell)).' |';
+      $padding = str_repeat(' ', $width - self::visible_width($cell));
+      $line .= ' '.(empty($right[$i]) ? $cell.$padding : $padding.$cell).' |';
     }
 
     return $line;
+  }
+
+  /**
+  * A count for a table cell: exact under a thousand, then rounded down to "12k" or "3M".
+  * Keep the raw number for --format=json, a script wants the figure.
+  */
+  // piwigo.org sends its counts with a thousands separator, "80 371": keep the digits only
+  public static function count_parse($count): int
+  {
+    return (int) preg_replace('/\D/', '', (string) $count);
+  }
+
+  public static function count_short(int $count): string
+  {
+    if ($count < 1000)
+    {
+      return (string) $count;
+    }
+
+    return $count < 1000000 ? floor($count / 1000).'k' : floor($count / 1000000).'M';
   }
 
   // str_pad counts bytes, an accent would shift every column after it
@@ -694,7 +731,7 @@ final class PwgCommand
     return trim(self::$progress_label.sprintf(' %3d%% (%d/%d)', $milestone, min(self::$progress_current, self::$progress_total), self::$progress_total));
   }
 
-  // the terminal line, e.g. "[=====>     ]  47%  470/1000  12s  eta 14s  importing"
+  // the terminal line, e.g. "[=====>     ]  47%  470/1000  12s  remaining 14s  importing"
   private static function progress_line(float $now): string
   {
     $elapsed = $now - self::$progress_started;
@@ -721,11 +758,11 @@ final class PwgCommand
 
     $parts[] = self::progress_duration($elapsed);
 
-    // an eta computed on the first instants is noise, wait two seconds
+    // a remaining time computed on the first instants is noise, wait two seconds
     if (null !== self::$progress_total && self::$progress_current > 0 && $elapsed >= 2 && self::$progress_current < self::$progress_total)
     {
       $remaining = $elapsed / self::$progress_current * (self::$progress_total - self::$progress_current);
-      $parts[] = 'eta '.self::progress_duration($remaining);
+      $parts[] = 'remaining '.self::progress_duration($remaining);
     }
 
     if ('' !== self::$progress_label)

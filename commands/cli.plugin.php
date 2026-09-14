@@ -116,7 +116,7 @@ function cli_plugin_search(array $args)
       'name' => $plugin['extension_name'],
       'version' => $plugin['revision_name'],
       'author' => $plugin['author_name'],
-      'downloads' => $plugin['extension_nb_downloads'],
+      'downloads' => 'json' === PwgCommand::format() ? PwgCommand::count_parse($plugin['extension_nb_downloads']) : PwgCommand::count_short(PwgCommand::count_parse($plugin['extension_nb_downloads'])),
     ];
   }
 

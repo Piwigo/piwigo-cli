@@ -290,7 +290,7 @@ function cli_theme_search(array $args)
       'name' => $theme['extension_name'],
       'version' => $theme['revision_name'],
       'author' => $theme['author_name'],
-      'downloads' => $theme['extension_nb_downloads'],
+      'downloads' => 'json' === PwgCommand::format() ? PwgCommand::count_parse($theme['extension_nb_downloads']) : PwgCommand::count_short(PwgCommand::count_parse($theme['extension_nb_downloads'])),
     ];
   }
 

@@ -90,7 +90,8 @@ class plugins
         'extension_description' => 3 === $i ? 'an admin toolbox' : 'does thing '.$i,
         'revision_name' => '1.'.$i,
         'author_name' => 'author'.$i,
-        'extension_nb_downloads' => 1000 - $i * 10,
+        // the first one comes shaped like piwigo.org really sends it, with a thousands separator
+        'extension_nb_downloads' => 1 === $i ? '80 371' : 1000 - $i * 10,
       ];
     }
 
