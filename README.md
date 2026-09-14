@@ -1,9 +1,9 @@
 # Piwigo CLI
 
 * Internal name: `piwigo-cli` (directory name in `plugins/`)
-* Plugin page: http://piwigo.org/ext/extension_view.php?eid=
+* Plugin page: http://piwigo.org/ext/extension_view.php?eid=27699
 
-The official command line for Piwigo. Diagnose the server (`doctor`), get the gallery in numbers (`status`), manage users and more from a shell.
+The official command line for Piwigo, from Piwigo 16.3.0. Install a gallery, update it, back it up, import photos, manage albums, users, plugins and themes, and run the maintenance jobs from a shell or a cron.
 
 ```bash
 php <path-to-your-piwigo>/plugins/piwigo-cli/bin/pwg.php <command> [options] [arguments]
@@ -11,7 +11,7 @@ php <path-to-your-piwigo>/plugins/piwigo-cli/bin/pwg.php <command> [options] [ar
 
 ## Installation
 
-Install it like any plugin, from the admin (Plugins > Add a plugin) or by copying this directory into `plugins/`. The directory must be named `piwigo-cli`. **Activation is not required**: the CLI is not loaded by the gallery, it boots Piwigo by itself from the shell.
+Needs Piwigo 16.3.0 or newer and PHP 7.4 or newer. Install it like any plugin, from the admin (Plugins > Add a plugin) or by copying this directory into `plugins/`. The directory must be named `piwigo-cli`. **Activation is not required**: the CLI is not loaded by the gallery, it boots Piwigo by itself from the shell.
 
 To get a global `pwg` command instead of the full path:
 
@@ -40,6 +40,23 @@ A command is declared as `namespace.command` and typed either way:
 `pwg user add` and `pwg user.add` are the same command. The longest declared name wins, whatever follows becomes arguments.
 
 Run `pwg list` to see the available commands, `pwg <command> --help` for one command.
+
+## Commands
+
+| namespace | what it covers |
+|-----------|----------------|
+| `doctor`, `status` | diagnose the server and the installation, the gallery in numbers |
+| `install` | a new gallery: database, tables, webmaster, every value as an option or asked for |
+| `update`, `upgrade` | what the admin Updates page and `upgrade.php` do: fetch a new Piwigo from piwigo.org, migrate the database |
+| `backup` | the tables of the gallery into a dated `.sql.gz`, with `mysqldump` when it is there |
+| `import` | a directory: its folders become albums, its photos are uploaded through the core upload path |
+| `album` | list, add, edit, move, delete, with a say on what happens to the photos |
+| `photo` | list, info, move, delete, import single files, read metadata again, generate the missing sizes |
+| `user` | list, info, add, edit, delete, rebuild the permission cache |
+| `plugin`, `theme` | list, activate, deactivate, delete, search piwigo.org, install and update from it |
+| `maintenance`, `purge` | the actions of the admin Maintenance page: lock, repair, orphans, caches, history |
+
+The only network the CLI ever uses is piwigo.org, for `update`, `plugin` and `theme`. In the official docker image `update` names the version and points to the update guide instead of writing files, the image brings them.
 
 ## The contract
 
