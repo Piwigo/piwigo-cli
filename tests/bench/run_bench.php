@@ -236,6 +236,11 @@ bench_case('photo', 'deriv-bad-type', 2, ['no such size: huge', 'square, thumb, 
 bench_case('photo', 'deriv-bad-jobs', 2, ['--jobs takes a number between 1 and 32']);
 bench_case('photo', 'deriv-no-selection', 2, ['Which photos?']);
 bench_case('photo', 'deriv-outcomes', 0, ['is there: generated', 'nothing written: failed', 'no answer at all: skipped', 'i.php error: failed']);
+bench_case('photo', 'checksums-dry', 0, ['would compute 1 checksum, 2 photos without a file on the disk', '2 photos have no file on the disk', '  #901 ./upload/notes.pdf', '  #902 ./upload/gone.jpg'], ['add_md5sum']);
+bench_case('photo', 'checksums', 0, ['add_md5sum(900)', '1 checksum computed', '#901 ./upload/notes.pdf'], ['add_md5sum(901', 'add_md5sum(902']);
+bench_case('photo', 'checksums-nothing', 0, ['every photo has its checksum'], ['add_md5sum']);
+bench_case('photo', 'checksums-many', 0, ['14 photos have no file on the disk', '  #918 ./upload/gone-8.jpg', '  and 4 more, --verbose lists them all'], ['#919 ']);
+bench_case('photo', 'checksums-many-verbose', 0, ['14 photos have no file on the disk', '  #922 ./upload/gone-12.jpg'], ['more']);
 
 echo "system\n";
 bench_case('system', 'root-with-sudo', 0, ['run it as root:  sudo php /x/bin/pwg.php shortcut', 'sudo found: true']);

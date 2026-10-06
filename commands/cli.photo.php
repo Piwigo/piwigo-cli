@@ -869,3 +869,96 @@ SELECT id
 
   return $row ? (int) $row[0] : null;
 }
+
+$cli->add_command('photo.checksums', 'cli_photo_checksums',
+  array(
+    'description' => 'Compute the missing checksums of the photos',
+    'boot' => 'full',
+    'details' => [
+      'Takes every photo whose md5sum is NULL, checks that its file is on the disk, and computes the checksum of those that are. The others are listed and left alone.',
+    ],
+    'examples' => [
+      'pwg photo checksums --dry-run',
+      'pwg photo checksums',
+    ],
+  )
+);
+function cli_photo_checksums()
+{
+  $query = '
+SELECT id, path
+  FROM '.IMAGES_TABLE.'
+  WHERE md5sum is NULL
+;';
+  $photos = query2array($query);
+
+  if (0 === count($photos))
+  {
+    PwgCommand::success('every photo has its checksum');
+    return PwgCommand::SUCCESS;
+  }
+
+  // the core would md5_file() a missing file, store nothing and pick it again: sort them out first
+  $present = [];
+  $missing = [];
+
+  foreach (PwgCommand::iterate($photos, 'checking the files') as $photo)
+  {
+    if (is_file(PHPWG_ROOT_PATH.$photo['path']))
+    {
+      $present[] = (int) $photo['id'];
+    }
+    else
+    {
+      $missing[] = '#'.$photo['id'].' '.$photo['path'];
+    }
+  }
+
+  $what = count($present).' checksum'.(1 === count($present) ? '' : 's')
+    .(count($missing) > 0 ? ', '.count($missing).' photo'.(1 === count($missing) ? '' : 's').' without a file on the disk' : '');
+
+  if (PwgCommand::is_dry_run())
+  {
+    PwgCommand::writeln('would compute '.$what);
+    cli_photo_checksums_report_missing($missing);
+    return PwgCommand::SUCCESS;
+  }
+
+  PwgCommand::writeln($what.' to compute');
+
+  // every block reads its files from the disk, so the bar moves per block
+  $done = 0;
+  PwgCommand::progress_start(count($present), 'computing');
+
+  foreach (array_chunk($present, 500) as $chunk)
+  {
+    $done += add_md5sum($chunk);
+    PwgCommand::progress_advance(count($chunk));
+  }
+
+  PwgCommand::progress_finish();
+  cli_photo_checksums_report_missing($missing);
+
+  PwgCommand::success($done.' checksum'.(1 === $done ? '' : 's').' computed');
+  return PwgCommand::SUCCESS;
+}
+
+// the photos the gallery still lists but whose file is gone: nothing to compute, something to clean
+function cli_photo_checksums_report_missing(array $missing)
+{
+  if (0 === count($missing))
+  {
+    return;
+  }
+
+  PwgCommand::warning(count($missing).' photo'.(1 === count($missing) ? ' has' : 's have').' no file on the disk, left without a checksum:');
+
+  // ten by default, the whole list with --verbose
+  $shown = PwgCommand::is_verbose() ? $missing : array_slice($missing, 0, 10);
+  PwgCommand::writeln(array_map(function ($line) { return '  '.$line; }, $shown));
+
+  if (count($shown) < count($missing))
+  {
+    PwgCommand::writeln('  and '.(count($missing) - count($shown)).' more, --verbose lists them all');
+  }
+}

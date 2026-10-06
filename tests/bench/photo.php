@@ -113,6 +113,13 @@ function query2array($query, $key = null, $value = null)
     return $rows;
   }
 
+  // the photos without a checksum: one with its file, two without
+  if (false !== strpos($query, 'md5sum is NULL'))
+  {
+    global $no_md5;
+    return $no_md5;
+  }
+
   // the columns the derivative listing needs
   if (false !== strpos($query, 'representative_ext'))
   {
@@ -152,6 +159,12 @@ function delete_elements($ids, $physical = false)
   return count($ids);
 }
 function sync_metadata($ids) { bench_core('sync_metadata('.count($ids).' photos)'); }
+function add_md5sum($ids) { bench_core('add_md5sum('.implode(',', $ids).')'); return count($ids); }
+$no_md5 = [
+  ['id' => 900, 'path' => './upload/sunset.jpg'],
+  ['id' => 901, 'path' => './upload/notes.pdf'],
+  ['id' => 902, 'path' => './upload/gone.jpg'],
+];
 function add_uploaded_file($source, $name, $categories, $level, $id, $md5)
 {
   bench_core("add_uploaded_file('$name', album=".implode(',', $categories).')');
@@ -245,6 +258,31 @@ bench_run([
     PwgCommand::writeln('no answer at all: '.cli_photo_derivative_outcome('', $written));
     PwgCommand::writeln('an i.php error: '.cli_photo_derivative_outcome("Source not found\nsecond line", $written));
     return PwgCommand::SUCCESS;
+  },
+  'checksums-dry' => function () {
+    PwgCommand::set_dry_run();
+    return cli_photo_checksums();
+  },
+  'checksums' => function () {
+    return cli_photo_checksums();
+  },
+  'checksums-many' => function () {
+    global $no_md5;
+    for ($i = 1; $i <= 12; $i++) { $no_md5[] = ['id' => 910 + $i, 'path' => './upload/gone-'.$i.'.jpg']; }
+    PwgCommand::set_dry_run();
+    return cli_photo_checksums();
+  },
+  'checksums-many-verbose' => function () {
+    global $no_md5;
+    for ($i = 1; $i <= 12; $i++) { $no_md5[] = ['id' => 910 + $i, 'path' => './upload/gone-'.$i.'.jpg']; }
+    PwgCommand::set_dry_run();
+    PwgCommand::set_verbose();
+    return cli_photo_checksums();
+  },
+  'checksums-nothing' => function () {
+    global $no_md5;
+    $no_md5 = [];
+    return cli_photo_checksums();
   },
   'sync-nothing' => function () { return cli_photo_sync_metadata(['photo_id' => [], 'album' => null, 'all' => false]); },
 ]);
