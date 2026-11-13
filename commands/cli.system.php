@@ -106,7 +106,7 @@ function cli_doctor(array $args)
   );
 
   $installed = PwgCommand::SUCCESS === $cli->init_minimal(false);
-  $check($installed ? 'ok' : 'warn', 'Piwigo installed', $installed ? '' : 'no local/config/database.inc.php, run "pwg install"');
+  $check($installed ? 'ok' : 'warn', 'Piwigo installed', $installed ? '' : 'no '.PWG_LOCAL_DIR.'config/database.inc.php, run "pwg install"');
 
   // database, only reachable when installed
   if ($installed)
@@ -526,8 +526,8 @@ $cli->add_command('install', 'cli_install_pwg',
     'boot' => 'none',
     'details' => [
       'Does what install.php does in the browser, without the browser. Every value can be given as an option, and whatever is missing is asked for, so the command works as well by hand as in a script.',
-      'It writes local/config/database.inc.php, creates the tables from install/piwigo_structure-mysql.sql, fills them from install/config.sql, activates the language and the core themes, then creates the webmaster and the guest account.',
-      'It refuses to run when local/config/database.inc.php is already there, and when the database already holds tables with the same prefix. Piwigo is never told to send the connection settings by email.',
+      'It writes config/database.inc.php in the local directory (local/ unless PWG_LOCAL_DIR is defined), creates the tables from install/piwigo_structure-mysql.sql, fills them from install/config.sql, activates the language and the core themes, then creates the webmaster and the guest account.',
+      'It refuses to run when that file is already there, and when the database already holds tables with the same prefix. Piwigo is never told to send the connection settings by email.',
     ],
     'examples' => [
       'pwg install',
@@ -578,7 +578,8 @@ function cli_install_pwg(array $args)
 {
   global $conf, $prefixeTable;
 
-  $config_file = PHPWG_ROOT_PATH.'local/config/database.inc.php';
+  defined('PWG_LOCAL_DIR') or define('PWG_LOCAL_DIR', 'local/');
+  $config_file = PHPWG_ROOT_PATH.PWG_LOCAL_DIR.'config/database.inc.php';
 
   if (is_file($config_file))
   {
@@ -620,7 +621,6 @@ function cli_install_pwg(array $args)
   // the core needs its own globals in place before constants.php names the tables
   $prefixeTable = $answers['db-prefix'];
   defined('DEFAULT_PREFIX_TABLE') or define('DEFAULT_PREFIX_TABLE', 'piwigo_');
-  defined('PWG_LOCAL_DIR') or define('PWG_LOCAL_DIR', 'local/');
 
   include_once(PHPWG_ROOT_PATH.'include/functions.inc.php');
   include_once(PHPWG_ROOT_PATH.'include/constants.php');
@@ -780,7 +780,7 @@ function cli_install_check(array $answers, string $language, languages $language
   return $errors;
 }
 
-// local/config/database.inc.php, in the format the core reads at every request
+// database.inc.php, in the format the core reads at every request
 function cli_install_write_config(string $config_file, array $answers): bool
 {
   $content = '<?php

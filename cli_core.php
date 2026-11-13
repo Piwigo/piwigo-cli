@@ -100,8 +100,7 @@ final class PwgCli {
     // config/database.inc.php set new $conf key
     // global put these keys in the global scope
     global $conf, $prefixeTable;
-    // define local dir and load database config
-    defined('PWG_LOCAL_DIR') or define('PWG_LOCAL_DIR', 'local/');
+    // load database config
     @include_once(PHPWG_ROOT_PATH.PWG_LOCAL_DIR.'config/database.inc.php');
 
     // if piwigo isn't installed, abort
